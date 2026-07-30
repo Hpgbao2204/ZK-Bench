@@ -1,0 +1,13 @@
+{
+  "adapter": "reference-predicate",
+  "claim_id": "VALIDATION-SEMANTICS",
+  "experiment_id": "reference-pilot-v1",
+  "repetitions": 10,
+  "seed": 20260731,
+  "warmups": 3,
+  "workloads": [
+    "credential",
+    "batched_state",
+    "private_swap"
+  ]
+}

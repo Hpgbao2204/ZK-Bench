@@ -1,0 +1,13 @@
+Paper/
+.codex/
+.local/
+.private/
+.venv/
+target/
+__pycache__/
+*.py[cod]
+*.log
+
+# Paper-only analysis and visualisation stay local.
+plots/
+figures/

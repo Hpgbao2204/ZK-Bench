@@ -1,0 +1,9 @@
+[project]
+name = "zkbench"
+version = "0.1.0"
+description = "Claim-driven NIZK benchmark orchestration and reference workloads"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.ruff]
+line-length = 100
