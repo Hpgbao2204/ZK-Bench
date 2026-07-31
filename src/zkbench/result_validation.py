@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -73,14 +74,6 @@ def _read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         return list(reader.fieldnames or []), list(reader)
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _expected_processes(config: dict[str, Any]) -> int:
@@ -242,9 +235,21 @@ def validate_result_bundle(bundle: Path, *, repo: Path | None = None) -> list[st
 
     if repo is not None:
         repo = repo.resolve()
-        cargo_lock = repo / "Cargo.lock"
         expected_lock_hash = environment.get("cargo_lock_sha256")
-        if cargo_lock.is_file() and expected_lock_hash:
-            if _sha256(cargo_lock) != expected_lock_hash:
-                errors.append("Cargo.lock hash does not match environment")
+        evidence_commit = environment.get("adapter_commit")
+        if expected_lock_hash and evidence_commit:
+            result = subprocess.run(
+                ["git", "show", f"{evidence_commit}:Cargo.lock"],
+                cwd=repo,
+                check=False,
+                capture_output=True,
+            )
+            if result.returncode != 0:
+                errors.append(
+                    "cannot recover Cargo.lock from the recorded adapter_commit"
+                )
+            elif hashlib.sha256(result.stdout).hexdigest() != expected_lock_hash:
+                errors.append(
+                    "recorded-commit Cargo.lock hash does not match environment"
+                )
     return errors
