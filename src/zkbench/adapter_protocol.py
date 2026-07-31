@@ -45,6 +45,7 @@ class AdapterRequest:
     seed: int
     mode: str = "warm"
     invalid_case: str | None = None
+    parameters: dict[str, int | str | bool] = field(default_factory=dict)
 
     def validate(self) -> None:
         if not self.run_id.strip():
@@ -63,6 +64,23 @@ class AdapterRequest:
             raise ValueError("seed must be a nonnegative integer")
         if self.mode not in {"cold", "warm"}:
             raise ValueError("mode must be cold or warm")
+        for name, value in self.parameters.items():
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("parameter names must be nonempty strings")
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, int):
+                if value <= 1:
+                    raise ValueError(
+                        f"numeric parameter {name} must exceed excluded boundary values"
+                    )
+                continue
+            if isinstance(value, str) and value.strip():
+                continue
+            raise ValueError(
+                f"parameter {name} must be a nonboundary integer, boolean, "
+                "or nonempty categorical string"
+            )
 
     def to_json(self) -> str:
         self.validate()

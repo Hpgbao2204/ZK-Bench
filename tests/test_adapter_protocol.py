@@ -26,6 +26,36 @@ class AdapterProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "boundary"):
             request.validate()
 
+    def test_request_accepts_sensitivity_parameters(self) -> None:
+        request = AdapterRequest(
+            run_id="r1",
+            workload="private_swap",
+            scale=8,
+            threads=2,
+            seed=7,
+            parameters={
+                "merkle_depth": 32,
+                "range_bits": 64,
+                "membership_enabled": True,
+                "ablation": "full",
+            },
+        )
+        request.validate()
+        payload = request.to_json()
+        self.assertIn('"merkle_depth":32', payload)
+
+    def test_request_rejects_numeric_parameter_boundaries(self) -> None:
+        request = AdapterRequest(
+            run_id="r1",
+            workload="private_swap",
+            scale=8,
+            threads=2,
+            seed=7,
+            parameters={"merkle_depth": 1},
+        )
+        with self.assertRaisesRegex(ValueError, "numeric parameter"):
+            request.validate()
+
     def test_valid_phase_round_trip(self) -> None:
         event = PhaseEvent(
             run_id="r1",

@@ -299,6 +299,7 @@ mod tests {
             seed: 7,
             mode: "warm".to_owned(),
             invalid_case: None,
+            parameters: BTreeMap::new(),
         };
         let valid_outcome = run(&valid).unwrap();
         assert!(valid_outcome.verify_ok);
@@ -322,6 +323,7 @@ mod tests {
             seed: 7,
             mode: "warm".to_owned(),
             invalid_case: None,
+            parameters: BTreeMap::new(),
         };
         assert!(run(&request).is_err());
     }

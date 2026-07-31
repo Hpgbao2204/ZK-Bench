@@ -16,6 +16,8 @@ pub struct AdapterRequest {
     pub mode: String,
     #[serde(default)]
     pub invalid_case: Option<String>,
+    #[serde(default)]
+    pub parameters: BTreeMap<String, serde_json::Value>,
 }
 
 fn default_mode() -> String {
@@ -38,6 +40,31 @@ impl AdapterRequest {
         }
         if !matches!(self.mode.as_str(), "cold" | "warm") {
             return Err("mode must be cold or warm".to_owned());
+        }
+        for (name, value) in &self.parameters {
+            if name.trim().is_empty() {
+                return Err("parameter names must be nonempty strings".to_owned());
+            }
+            match value {
+                serde_json::Value::Bool(_) => {}
+                serde_json::Value::Number(number) => {
+                    let value = number.as_u64().ok_or_else(|| {
+                        format!("numeric parameter {name} must be a nonnegative integer")
+                    })?;
+                    if value <= 1 {
+                        return Err(format!(
+                            "numeric parameter {name} must exceed excluded boundary values"
+                        ));
+                    }
+                }
+                serde_json::Value::String(text) if !text.trim().is_empty() => {}
+                _ => {
+                    return Err(format!(
+                        "parameter {name} must be a nonboundary integer, boolean, \
+                         or nonempty categorical string"
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -202,6 +229,7 @@ mod tests {
             seed: 7,
             mode: "warm".to_owned(),
             invalid_case: None,
+            parameters: BTreeMap::new(),
         }
     }
 
@@ -209,6 +237,28 @@ mod tests {
     fn request_rejects_boundary_scale() {
         let mut value = request();
         value.scale = 1;
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn request_accepts_sensitivity_parameters_and_rejects_numeric_boundaries() {
+        let mut value = request();
+        value.parameters.insert(
+            "merkle_depth".to_owned(),
+            serde_json::Value::from(32_u64),
+        );
+        value.parameters.insert(
+            "ablation".to_owned(),
+            serde_json::Value::from("full"),
+        );
+        value.parameters.insert(
+            "membership_enabled".to_owned(),
+            serde_json::Value::from(true),
+        );
+        assert!(value.validate().is_ok());
+        value
+            .parameters
+            .insert("range_bits".to_owned(), serde_json::Value::from(1_u64));
         assert!(value.validate().is_err());
     }
 
