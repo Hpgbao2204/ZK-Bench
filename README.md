@@ -73,7 +73,7 @@ Linux adapter campaigns must run with the Python runner inside WSL so
 `linux-procfs` measures the adapter itself:
 
 ```powershell
-wsl bash -lc 'cd /mnt/d/ZK\ Bench && python3 scripts/run_bench.py --config configs/controlled-plonk-pilot.json --output results/controlled-plonk-pilot-v1'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && python3 scripts/run_bench.py --config configs/controlled-plonk-pilot.json --output .local/reproductions/controlled-plonk-pilot-v1'
 ```
 
 The runner refuses to overwrite an existing evidence bundle. Never run a Linux
