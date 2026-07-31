@@ -24,12 +24,14 @@ RAW_FIELDS = [
     "run_id", "timestamp", "claim_id", "experiment_id", "workload", "variant",
     "adapter_commit", "config_hash", "seed", "repetition", "order_index", "input_scale",
     "native_work_units", "threads", "cores_visible", "phase", "latency_ms", "cpu_time_ms",
-    "peak_rss_mb", "swap_delta_mb", "proof_bytes", "verify_ok", "exit_code", "error_type",
+    "peak_rss_mb", "proof_bytes", "verify_ok", "exit_code", "error_type",
     "page_faults", "process_read_bytes", "process_write_bytes", "peak_swap_mb",
     "ram_per_application_unit", "process_counter_provider", "measurement_scope",
     "energy_joules", "energy_source", "cold_start", "invalid_proof_kind",
     "rejection_latency_ms", "metric_unavailable_reason", "boundary_reason",
-    "evidence_class", "result_scope",
+    "evidence_class", "result_scope", "run_role", "recorded", "phase_supported",
+    "phase_status", "phase_metrics_json", "constraints", "public_inputs",
+    "counter_sampling_interval_ms", "counter_samples",
 ]
 
 FIXTURES = {
@@ -99,7 +101,6 @@ def run_reference(config: dict[str, Any], output: Path) -> None:
                 "latency_ms": f"{latency_ms:.6f}",
                 "cpu_time_ms": f"{cpu_ms:.6f}",
                 "peak_rss_mb": "",
-                "swap_delta_mb": "",
                 "proof_bytes": "",
                 "verify_ok": str(result.valid).lower(),
                 "exit_code": 0 if result.valid else 1,
@@ -120,6 +121,15 @@ def run_reference(config: dict[str, Any], output: Path) -> None:
                 "boundary_reason": "",
                 "evidence_class": "measured",
                 "result_scope": "validation-only-not-a-proof-benchmark",
+                "run_role": "measurement",
+                "recorded": "true",
+                "phase_supported": "true",
+                "phase_status": "ok",
+                "phase_metrics_json": "{}",
+                "constraints": "",
+                "public_inputs": "",
+                "counter_sampling_interval_ms": "",
+                "counter_samples": "",
             }
         )
     with (output / "raw_results.csv").open("w", newline="", encoding="utf-8") as handle:

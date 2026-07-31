@@ -19,6 +19,7 @@ for phase in (
     "witness",
     "prove_total",
     "serialize",
+    "verify_core",
     "verify_total",
 ):
     print(
