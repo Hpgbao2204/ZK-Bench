@@ -10,7 +10,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from zkbench.campaign import run_adapter_campaign, validate_campaign_config  # noqa: E402
+from zkbench.campaign import (  # noqa: E402
+    _validate_executable_platform,
+    run_adapter_campaign,
+    validate_campaign_config,
+)
 
 
 def campaign_config() -> dict[str, object]:
@@ -199,6 +203,15 @@ class CampaignTests(unittest.TestCase):
                 (output / "raw_results.csv").read_text(encoding="utf-8"),
                 "existing\n",
             )
+
+    def test_windows_rejects_linux_adapter_before_campaign_output(self) -> None:
+        local = REPO / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            executable = Path(temp) / "adapter"
+            executable.write_bytes(b"\x7fELFfake")
+            with self.assertRaisesRegex(RuntimeError, "Python inside WSL"):
+                _validate_executable_platform(executable, host_os="nt")
 
 
 if __name__ == "__main__":

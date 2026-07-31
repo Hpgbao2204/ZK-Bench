@@ -238,6 +238,16 @@ def _file_sha256(path: Path) -> str | None:
     return digest.hexdigest()
 
 
+def _validate_executable_platform(executable: Path, *, host_os: str = os.name) -> None:
+    with executable.open("rb") as handle:
+        magic = handle.read(4)
+    if host_os == "nt" and magic == b"\x7fELF":
+        raise RuntimeError(
+            "adapter executable is a Linux ELF binary; run the entire benchmark "
+            "with Python inside WSL so Linux process counters measure the adapter"
+        )
+
+
 def _cpu_model() -> str | None:
     cpuinfo = Path("/proc/cpuinfo")
     if not cpuinfo.is_file():
@@ -869,6 +879,7 @@ def run_adapter_campaign(
         executable = (repo / executable).resolve()
     if not executable.is_file():
         raise FileNotFoundError(f"adapter executable does not exist: {executable}")
+    _validate_executable_platform(executable)
     command[0] = str(executable)
     evidence_names = {
         "raw_results.csv",
