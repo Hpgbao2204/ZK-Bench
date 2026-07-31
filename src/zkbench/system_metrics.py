@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import ctypes
 import os
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 
@@ -16,6 +18,7 @@ class ProcessCounters:
     page_faults: int | None
     read_bytes: int | None
     write_bytes: int | None
+    swap_bytes: int | None
     provider: str
     unavailable_reason: str | None = None
 
@@ -37,6 +40,7 @@ class UnavailableProcessCounterProvider:
             page_faults=None,
             read_bytes=None,
             write_bytes=None,
+            swap_bytes=None,
             provider="unavailable",
             unavailable_reason=self.reason,
         )
@@ -124,14 +128,94 @@ class WindowsProcessCounterProvider:
                 page_faults=self._nonboundary(int(memory.PageFaultCount)),
                 read_bytes=self._nonboundary(int(io.ReadTransferCount)) if io_ok else None,
                 write_bytes=self._nonboundary(int(io.WriteTransferCount)) if io_ok else None,
+                swap_bytes=None,
                 provider="windows-psapi",
-                unavailable_reason=None if io_ok else "I/O counters unavailable",
+                unavailable_reason=(
+                    "per-process swap allocation unavailable"
+                    if io_ok
+                    else "I/O counters and per-process swap allocation unavailable"
+                ),
             )
         finally:
             self.kernel32.CloseHandle(handle)
 
 
+def _nonboundary(value: int | None) -> int | None:
+    return None if value is None or value in (0, 1) else value
+
+
+def _parse_proc_key_values(text: str) -> dict[str, int]:
+    values: dict[str, int] = {}
+    for line in text.splitlines():
+        key, separator, raw = line.partition(":")
+        if not separator:
+            continue
+        fields = raw.strip().split()
+        if not fields:
+            continue
+        try:
+            value = int(fields[0])
+        except ValueError:
+            continue
+        if len(fields) > 1 and fields[1].lower() == "kb":
+            value *= 1024
+        values[key] = value
+    return values
+
+
+def _parse_proc_faults(text: str) -> int:
+    closing = text.rfind(")")
+    if closing < 0:
+        raise ValueError("malformed /proc stat: missing process-name terminator")
+    fields_after_name = text[closing + 1 :].split()
+    if len(fields_after_name) <= 9:
+        raise ValueError("malformed /proc stat: missing page-fault fields")
+    # fields_after_name[0] is field 3 (state); minflt/majflt are fields 10/12.
+    return int(fields_after_name[7]) + int(fields_after_name[9])
+
+
+class LinuxProcProcessCounterProvider:
+    """Read process counters without psutil or a global package install."""
+
+    def __init__(self, proc_root: Path = Path("/proc")) -> None:
+        self.proc_root = proc_root
+
+    def capture(self, pid: int) -> ProcessCounters:
+        process_root = self.proc_root / str(pid)
+        try:
+            status = _parse_proc_key_values(
+                (process_root / "status").read_text(encoding="utf-8")
+            )
+            io_values = _parse_proc_key_values(
+                (process_root / "io").read_text(encoding="utf-8")
+            )
+            page_faults = _parse_proc_faults(
+                (process_root / "stat").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError) as error:
+            return UnavailableProcessCounterProvider(
+                f"Linux procfs read failed: {error}"
+            ).capture(pid)
+        return ProcessCounters(
+            supported=True,
+            peak_rss_bytes=_nonboundary(status.get("VmHWM")),
+            # RssAnon is not equivalent to Windows private commit; leave it blank.
+            private_bytes=None,
+            page_faults=_nonboundary(page_faults),
+            read_bytes=_nonboundary(io_values.get("read_bytes")),
+            write_bytes=_nonboundary(io_values.get("write_bytes")),
+            swap_bytes=_nonboundary(status.get("VmSwap")),
+            provider="linux-procfs",
+            unavailable_reason=(
+                "private commit and per-process swap I/O are unavailable; "
+                "VmSwap reports allocation, not swap traffic"
+            ),
+        )
+
+
 def default_process_counter_provider() -> ProcessCounterProvider:
     if os.name == "nt":
         return WindowsProcessCounterProvider()
+    if sys.platform.startswith("linux"):
+        return LinuxProcProcessCounterProvider()
     return UnavailableProcessCounterProvider("no process counter provider for this platform")
