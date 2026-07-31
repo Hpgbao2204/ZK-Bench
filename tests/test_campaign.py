@@ -116,6 +116,67 @@ class CampaignTests(unittest.TestCase):
         self.assertTrue(any("[11/11]" in message for message in messages))
         self.assertTrue(messages[-1].startswith("campaign complete:"))
 
+    def test_parameter_sets_are_carried_into_raw_and_summary(self) -> None:
+        config = campaign_config()
+        config["parameter_sets"] = [
+            {
+                "id": "depth-16",
+                "parameters": {
+                    "merkle_depth": 16,
+                    "range_bits": 64,
+                    "ablation": "full",
+                },
+            },
+            {
+                "id": "depth-32",
+                "parameters": {
+                    "merkle_depth": 32,
+                    "range_bits": 64,
+                    "ablation": "full",
+                },
+            },
+        ]
+        config["invalid_cases"][0]["parameter_set_ids"] = ["depth-32"]
+        local = REPO / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            output = Path(temp)
+            run_adapter_campaign(config, output, repo=REPO)
+            with (output / "raw_results.csv").open(
+                newline="", encoding="utf-8"
+            ) as handle:
+                raw = list(csv.DictReader(handle))
+            with (output / "summary.csv").open(
+                newline="", encoding="utf-8"
+            ) as handle:
+                summary = list(csv.DictReader(handle))
+        self.assertEqual(
+            {row["parameter_set"] for row in raw},
+            {"depth-16", "depth-32"},
+        )
+        self.assertTrue(
+            all(
+                row["parameter_set"] == "depth-32"
+                for row in raw
+                if row["invalid_proof_kind"]
+            )
+        )
+        self.assertTrue(
+            any('"merkle_depth":16' in row["parameters_json"] for row in summary)
+        )
+        self.assertEqual(
+            len({row["run_id"] for row in raw}),
+            19,
+        )
+
+    def test_rejects_boundary_parameter_values(self) -> None:
+        config = campaign_config()
+        config["parameter_sets"] = [
+            {"id": "invalid-depth", "parameters": {"merkle_depth": 1}}
+        ]
+        with self.assertRaisesRegex(ValueError, "numeric parameter"):
+            validate_campaign_config(config)
+
     def test_refuses_to_overwrite_existing_evidence(self) -> None:
         local = REPO / ".local"
         local.mkdir(exist_ok=True)

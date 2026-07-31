@@ -22,7 +22,8 @@ from .workloads import evaluate
 
 RAW_FIELDS = [
     "run_id", "timestamp", "claim_id", "experiment_id", "workload", "variant",
-    "adapter_commit", "config_hash", "seed", "repetition", "order_index", "input_scale",
+    "adapter_commit", "config_hash", "seed", "repetition", "order_index",
+    "parameter_set", "parameters_json", "input_scale",
     "native_work_units", "threads", "cores_visible", "phase", "latency_ms", "cpu_time_ms",
     "peak_rss_mb", "proof_bytes", "verify_ok", "exit_code", "error_type",
     "page_faults", "process_read_bytes", "process_write_bytes", "peak_swap_mb",

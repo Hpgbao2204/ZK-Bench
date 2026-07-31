@@ -34,6 +34,8 @@ SUMMARY_FIELDS = [
     "config_hash",
     "workload",
     "variant",
+    "parameter_set",
+    "parameters_json",
     "phase",
     "input_scale",
     "threads",
@@ -85,6 +87,38 @@ def _integer_list(config: dict[str, Any], name: str, *, minimum: int) -> list[in
     return values
 
 
+def _parameter_sets(config: dict[str, Any]) -> list[dict[str, Any]]:
+    configured = config.get("parameter_sets")
+    if configured is None:
+        return [{"id": "default", "parameters": {}}]
+    if not isinstance(configured, list) or not configured:
+        raise ValueError("parameter_sets must be a nonempty list")
+    normalized: list[dict[str, Any]] = []
+    identifiers: set[str] = set()
+    for item in configured:
+        if not isinstance(item, dict):
+            raise ValueError("each parameter set must be an object")
+        identifier = item.get("id")
+        parameters = item.get("parameters")
+        if not isinstance(identifier, str) or not identifier.strip():
+            raise ValueError("each parameter set requires a nonempty id")
+        if identifier in identifiers:
+            raise ValueError("parameter set ids must be unique")
+        if not isinstance(parameters, dict):
+            raise ValueError(f"parameter set {identifier} requires a parameters object")
+        AdapterRequest(
+            run_id="config-validation",
+            workload="parameter-validation",
+            scale=2,
+            threads=1,
+            seed=2,
+            parameters=parameters,
+        ).validate()
+        identifiers.add(identifier)
+        normalized.append({"id": identifier, "parameters": dict(parameters)})
+    return normalized
+
+
 def validate_campaign_config(config: dict[str, Any]) -> None:
     required_text = (
         "claim_id",
@@ -113,6 +147,8 @@ def validate_campaign_config(config: dict[str, Any]) -> None:
         raise ValueError("command must be a nonempty string list")
     _integer_list(config, "scales", minimum=2)
     _integer_list(config, "threads", minimum=1)
+    parameter_sets = _parameter_sets(config)
+    parameter_set_ids = {item["id"] for item in parameter_sets}
     for name, minimum in (
         ("repetitions", 3),
         ("os_cache_primer_runs", 1),
@@ -150,6 +186,25 @@ def validate_campaign_config(config: dict[str, Any]) -> None:
             or repetitions < 3
         ):
             raise ValueError("invalid-case repetitions must be >= 3")
+        selected = case.get("parameter_set_ids")
+        if selected is not None:
+            if (
+                not isinstance(selected, list)
+                or not selected
+                or any(not isinstance(item, str) or not item for item in selected)
+            ):
+                raise ValueError(
+                    "invalid-case parameter_set_ids must be a nonempty string list"
+                )
+            if len(set(selected)) != len(selected):
+                raise ValueError(
+                    "invalid-case parameter_set_ids must not contain duplicates"
+                )
+            unknown = set(selected) - parameter_set_ids
+            if unknown:
+                raise ValueError(
+                    f"invalid-case parameter_set_ids are unknown: {sorted(unknown)}"
+                )
 
 
 def _git_commit(repo: Path) -> str:
@@ -240,47 +295,61 @@ def _tasks(config: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str,
     measurements: list[dict[str, Any]] = []
     base_seed = int(config["seed"])
     seed_rng = random.Random(base_seed)
-    for scale in config["scales"]:
-        for threads in config["threads"]:
-            for repetition in range(config["os_cache_primer_runs"]):
-                primers.append(
-                    {
-                        "scale": scale,
-                        "threads": threads,
-                        "repetition": repetition,
-                        "invalid_case": None,
-                        "seed": seed_rng.randrange(2, 2**63),
-                        "run_role": "os_cache_primer",
-                        "recorded": False,
-                    }
-                )
-            for repetition in range(config["repetitions"]):
-                measurements.append(
-                    {
-                        "scale": scale,
-                        "threads": threads,
-                        "repetition": repetition,
-                        "invalid_case": None,
-                        "seed": seed_rng.randrange(2, 2**63),
-                        "run_role": "measurement",
-                        "recorded": True,
-                    }
-                )
-    for invalid in config.get("invalid_cases", []):
-        for scale in invalid["scales"]:
-            for threads in invalid["threads"]:
-                for repetition in range(invalid["repetitions"]):
+    parameter_sets = _parameter_sets(config)
+    parameter_sets_by_id = {item["id"]: item for item in parameter_sets}
+    for parameter_set in parameter_sets:
+        for scale in config["scales"]:
+            for threads in config["threads"]:
+                for repetition in range(config["os_cache_primer_runs"]):
+                    primers.append(
+                        {
+                            "scale": scale,
+                            "threads": threads,
+                            "repetition": repetition,
+                            "invalid_case": None,
+                            "seed": seed_rng.randrange(2, 2**63),
+                            "run_role": "os_cache_primer",
+                            "recorded": False,
+                            "parameter_set": parameter_set["id"],
+                            "parameters": parameter_set["parameters"],
+                        }
+                    )
+                for repetition in range(config["repetitions"]):
                     measurements.append(
                         {
                             "scale": scale,
                             "threads": threads,
                             "repetition": repetition,
-                            "invalid_case": invalid["kind"],
+                            "invalid_case": None,
                             "seed": seed_rng.randrange(2, 2**63),
                             "run_role": "measurement",
                             "recorded": True,
+                            "parameter_set": parameter_set["id"],
+                            "parameters": parameter_set["parameters"],
                         }
                     )
+    for invalid in config.get("invalid_cases", []):
+        selected_ids = invalid.get(
+            "parameter_set_ids", list(parameter_sets_by_id)
+        )
+        for parameter_set_id in selected_ids:
+            parameter_set = parameter_sets_by_id[parameter_set_id]
+            for scale in invalid["scales"]:
+                for threads in invalid["threads"]:
+                    for repetition in range(invalid["repetitions"]):
+                        measurements.append(
+                            {
+                                "scale": scale,
+                                "threads": threads,
+                                "repetition": repetition,
+                                "invalid_case": invalid["kind"],
+                                "seed": seed_rng.randrange(2, 2**63),
+                                "run_role": "measurement",
+                                "recorded": True,
+                                "parameter_set": parameter_set["id"],
+                                "parameters": parameter_set["parameters"],
+                            }
+                        )
     random.Random(base_seed ^ 0xC0FFEE).shuffle(measurements)
     return primers, measurements
 
@@ -316,6 +385,10 @@ def _base_row(
             "seed": request.seed,
             "repetition": task["repetition"],
             "order_index": order_index,
+            "parameter_set": task["parameter_set"],
+            "parameters_json": json.dumps(
+                request.parameters, sort_keys=True, separators=(",", ":")
+            ),
             "input_scale": request.scale,
             "native_work_units": request.scale,
             "threads": request.threads,
@@ -451,55 +524,107 @@ def _nonboundary_values(rows: Iterable[dict[str, str]], field: str) -> list[floa
 
 def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
     recorded = [row for row in rows if row["recorded"] == "true"]
-    groups: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
+    groups: dict[tuple[str, str, str, str, str, str], list[dict[str, str]]] = {}
     for row in recorded:
         key = (
+            row["parameter_set"],
+            row["parameters_json"],
             row["phase"],
             row["input_scale"],
             row["threads"],
             row["invalid_proof_kind"],
         )
         groups.setdefault(key, []).append(row)
-    prove_samples: dict[tuple[int, int], list[float]] = {}
-    for (phase, scale, threads, invalid_kind), group in groups.items():
+    prove_samples: dict[tuple[str, str, int, int], list[float]] = {}
+    for (
+        parameter_set,
+        parameters_json,
+        phase,
+        scale,
+        threads,
+        invalid_kind,
+    ), group in groups.items():
         if phase != "prove_total" or invalid_kind:
             continue
         values = _nonboundary_values(group, "latency_ms")
         if values:
-            prove_samples[(int(scale), int(threads))] = values
-    prove_scales = sorted({scale for scale, _ in prove_samples})
-    prove_threads = sorted({threads for _, threads in prove_samples})
-    profiles = {}
-    for scale in prove_scales:
-        samples = {
-            threads: prove_samples[(scale, threads)]
-            for threads in prove_threads
-            if (scale, threads) in prove_samples
+            prove_samples[
+                (parameter_set, parameters_json, int(scale), int(threads))
+            ] = values
+    parameter_keys = sorted(
+        {
+            (parameter_set, parameters_json)
+            for parameter_set, parameters_json, _, _ in prove_samples
         }
-        if 1 in samples:
-            profiles[scale] = parallel_profile(samples)
+    )
+    profiles = {}
     scaling = {}
     scaling_intervals = {}
     seed_base = int(recorded[0]["config_hash"][:16], 16) if recorded else 2
-    for threads in prove_threads:
-        samples_by_scale = {
-            scale: prove_samples[(scale, threads)]
-            for scale in prove_scales
-            if (scale, threads) in prove_samples
-        }
-        if len(samples_by_scale) >= 3:
-            scaling[threads] = fit_power_law(
-                (scale, statistics.median(values))
-                for scale, values in samples_by_scale.items()
-            )
-            scaling_intervals[threads] = bootstrap_power_law_exponent_interval(
-                samples_by_scale, seed=seed_base ^ threads
-            )
+    for parameter_key in parameter_keys:
+        parameter_set, parameters_json = parameter_key
+        prove_scales = sorted(
+            {
+                scale
+                for pset, pjson, scale, _ in prove_samples
+                if (pset, pjson) == parameter_key
+            }
+        )
+        prove_threads = sorted(
+            {
+                threads
+                for pset, pjson, _, threads in prove_samples
+                if (pset, pjson) == parameter_key
+            }
+        )
+        for scale in prove_scales:
+            samples = {
+                threads: prove_samples[
+                    (parameter_set, parameters_json, scale, threads)
+                ]
+                for threads in prove_threads
+                if (parameter_set, parameters_json, scale, threads)
+                in prove_samples
+            }
+            if 1 in samples:
+                profiles[(parameter_key, scale)] = parallel_profile(samples)
+        for threads in prove_threads:
+            samples_by_scale = {
+                scale: prove_samples[
+                    (parameter_set, parameters_json, scale, threads)
+                ]
+                for scale in prove_scales
+                if (parameter_set, parameters_json, scale, threads)
+                in prove_samples
+            }
+            if len(samples_by_scale) >= 3:
+                scaling[(parameter_key, threads)] = fit_power_law(
+                    (scale, statistics.median(values))
+                    for scale, values in samples_by_scale.items()
+                )
+                scaling_intervals[
+                    (parameter_key, threads)
+                ] = bootstrap_power_law_exponent_interval(
+                    samples_by_scale,
+                    seed=seed_base
+                    ^ threads
+                    ^ int(
+                        canonical_hash({"parameter_set": parameter_set})[:16],
+                        16,
+                    ),
+                )
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=SUMMARY_FIELDS)
         writer.writeheader()
         for key, group in sorted(groups.items()):
-            phase, scale, threads, invalid_kind = key
+            (
+                parameter_set,
+                parameters_json,
+                phase,
+                scale,
+                threads,
+                invalid_kind,
+            ) = key
             latencies = _nonboundary_values(group, "latency_ms")
             excluded: list[str] = []
 
@@ -539,7 +664,8 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
             if phase == "prove_total" and not invalid_kind:
                 scale_number = int(scale)
                 thread_number = int(threads)
-                profile = profiles.get(scale_number)
+                parameter_key = (parameter_set, parameters_json)
+                profile = profiles.get((parameter_key, scale_number))
                 if profile:
                     saturation = profile.saturation_threads
                     point = next(
@@ -555,14 +681,30 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                         efficiency = point.efficiency
                         try:
                             speedup_ci = bootstrap_speedup_interval(
-                                prove_samples[(scale_number, 1)],
-                                prove_samples[(scale_number, thread_number)],
+                                prove_samples[
+                                    (
+                                        parameter_set,
+                                        parameters_json,
+                                        scale_number,
+                                        1,
+                                    )
+                                ],
+                                prove_samples[
+                                    (
+                                        parameter_set,
+                                        parameters_json,
+                                        scale_number,
+                                        thread_number,
+                                    )
+                                ],
                                 seed=seed_base ^ scale_number ^ thread_number,
                             )
                         except ValueError as error:
                             derived_unavailable_reason = str(error)
-                fit = scaling.get(thread_number)
-                exponent_ci = scaling_intervals.get(thread_number)
+                fit = scaling.get((parameter_key, thread_number))
+                exponent_ci = scaling_intervals.get(
+                    (parameter_key, thread_number)
+                )
             reasons = sorted(
                 {
                     row["metric_unavailable_reason"]
@@ -580,6 +722,8 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                     "config_hash": group[0]["config_hash"],
                     "workload": group[0]["workload"],
                     "variant": group[0]["variant"],
+                    "parameter_set": parameter_set,
+                    "parameters_json": parameters_json,
                     "phase": phase,
                     "input_scale": scale,
                     "threads": threads,
@@ -736,6 +880,7 @@ def run_adapter_campaign(
                     f"[{order_index + 1}/{len(all_tasks)}] "
                     f"{task['run_role']} scale={task['scale']} "
                     f"threads={task['threads']} "
+                    f"parameters={task['parameter_set']} "
                     f"invalid={task['invalid_case'] or 'none'}"
                 )
             request = AdapterRequest(
@@ -746,6 +891,7 @@ def run_adapter_campaign(
                 seed=task["seed"],
                 mode=config["mode"],
                 invalid_case=task["invalid_case"],
+                parameters=task["parameters"],
             )
             execution = execute_adapter(
                 command,

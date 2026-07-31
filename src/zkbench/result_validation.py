@@ -86,10 +86,29 @@ def _sha256(path: Path) -> str:
 def _expected_processes(config: dict[str, Any]) -> int:
     scales = len(config["scales"])
     threads = len(config["threads"])
-    primers = scales * threads * int(config["os_cache_primer_runs"])
-    measurements = scales * threads * int(config["repetitions"])
+    parameter_sets = config.get("parameter_sets") or [
+        {"id": "default", "parameters": {}}
+    ]
+    parameter_set_count = len(parameter_sets)
+    primers = (
+        parameter_set_count
+        * scales
+        * threads
+        * int(config["os_cache_primer_runs"])
+    )
+    measurements = (
+        parameter_set_count * scales * threads * int(config["repetitions"])
+    )
     invalid = sum(
-        len(case["scales"]) * len(case["threads"]) * int(case["repetitions"])
+        len(
+            case.get(
+                "parameter_set_ids",
+                [parameter_set["id"] for parameter_set in parameter_sets],
+            )
+        )
+        * len(case["scales"])
+        * len(case["threads"])
+        * int(case["repetitions"])
         for case in config.get("invalid_cases", [])
     )
     return primers + measurements + invalid
@@ -114,6 +133,11 @@ def validate_result_bundle(bundle: Path, *, repo: Path | None = None) -> list[st
     summary_fields, summary = _read_csv(bundle / "summary.csv")
     missing_raw = REQUIRED_RAW_COLUMNS - set(raw_fields)
     missing_summary = REQUIRED_SUMMARY_COLUMNS - set(summary_fields)
+    parameter_sets = config.get("parameter_sets")
+    if parameter_sets is not None:
+        parameter_columns = {"parameter_set", "parameters_json"}
+        missing_raw.update(parameter_columns - set(raw_fields))
+        missing_summary.update(parameter_columns - set(summary_fields))
     if missing_raw:
         errors.append(f"raw_results.csv missing columns: {sorted(missing_raw)}")
     if missing_summary:
@@ -136,6 +160,23 @@ def validate_result_bundle(bundle: Path, *, repo: Path | None = None) -> list[st
     raw_commits = {row["adapter_commit"] for row in raw}
     if raw_commits != {adapter_commit}:
         errors.append("raw adapter_commit does not match environment")
+    if parameter_sets is not None:
+        expected_parameters = {
+            item["id"]: json.dumps(
+                item["parameters"], sort_keys=True, separators=(",", ":")
+            )
+            for item in parameter_sets
+        }
+        for row_number, row in enumerate(raw, start=2):
+            parameter_set = row["parameter_set"]
+            if parameter_set not in expected_parameters:
+                errors.append(
+                    f"raw row {row_number} has unknown parameter_set {parameter_set}"
+                )
+            elif row["parameters_json"] != expected_parameters[parameter_set]:
+                errors.append(
+                    f"raw row {row_number} has broken parameter-set lineage"
+                )
 
     runs: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in raw:
@@ -179,6 +220,16 @@ def validate_result_bundle(bundle: Path, *, repo: Path | None = None) -> list[st
             errors.append(f"summary row {index} includes a primer/non-recorded run")
         if row["expected_outcomes"] == "unexpected-outcome-present":
             errors.append(f"summary row {index} reports an unexpected outcome")
+        if parameter_sets is not None:
+            parameter_set = row["parameter_set"]
+            if parameter_set not in expected_parameters:
+                errors.append(
+                    f"summary row {index} has unknown parameter_set {parameter_set}"
+                )
+            elif row["parameters_json"] != expected_parameters[parameter_set]:
+                errors.append(
+                    f"summary row {index} has broken parameter-set lineage"
+                )
         for field in SUMMARY_QUANTITATIVE_FIELDS:
             value = row.get(field, "")
             if value and float(value) in (0.0, 1.0):

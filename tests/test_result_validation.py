@@ -42,6 +42,34 @@ class ResultValidationTests(unittest.TestCase):
             errors = validate_result_bundle(bundle, repo=REPO)
         self.assertTrue(any("boundary value" in error for error in errors))
 
+    def test_parameter_set_lineage_is_validated(self) -> None:
+        config = campaign_config()
+        config["parameter_sets"] = [
+            {
+                "id": "depth-16",
+                "parameters": {"merkle_depth": 16, "range_bits": 64},
+            }
+        ]
+        local = REPO / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            bundle = Path(temp)
+            run_adapter_campaign(config, bundle, repo=REPO)
+            self.assertEqual(validate_result_bundle(bundle, repo=REPO), [])
+            raw_path = bundle / "raw_results.csv"
+            with raw_path.open(newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            rows[0]["parameters_json"] = '{"merkle_depth":32,"range_bits":64}'
+            with raw_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            errors = validate_result_bundle(bundle, repo=REPO)
+        self.assertTrue(
+            any("broken parameter-set lineage" in error for error in errors)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
