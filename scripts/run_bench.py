@@ -24,7 +24,12 @@ def main() -> int:
     if config.get("adapter") == "reference-predicate":
         run_reference(config, args.output)
     elif config.get("campaign_kind") == "adapter-process":
-        run_adapter_campaign(config, args.output, repo=REPO)
+        run_adapter_campaign(
+            config,
+            args.output,
+            repo=REPO,
+            progress=lambda message: print(message, flush=True),
+        )
     else:
         parser.error("config must select reference-predicate or adapter-process campaign")
     return 0

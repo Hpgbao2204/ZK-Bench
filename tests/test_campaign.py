@@ -101,6 +101,21 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(environment["runner"], "adapter-process-campaign")
         self.assertEqual(len(environment["config_hash"]), 64)
 
+    def test_progress_reports_process_counts(self) -> None:
+        messages: list[str] = []
+        local = REPO / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            run_adapter_campaign(
+                campaign_config(),
+                Path(temp),
+                repo=REPO,
+                progress=messages.append,
+            )
+        self.assertIn("8 total processes", messages[0])
+        self.assertTrue(any("[8/8]" in message for message in messages))
+        self.assertTrue(messages[-1].startswith("campaign complete:"))
+
 
 if __name__ == "__main__":
     unittest.main()

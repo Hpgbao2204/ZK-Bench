@@ -14,7 +14,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .adapter_protocol import AdapterRequest, PhaseEvent
 from .adapter_runner import AdapterExecution, execute_adapter
@@ -554,6 +554,7 @@ def run_adapter_campaign(
     output: Path,
     *,
     repo: Path,
+    progress: Callable[[str], None] | None = None,
 ) -> None:
     validate_campaign_config(config)
     if config.get("require_clean_git", True) and _tracked_worktree_dirty(repo):
@@ -584,6 +585,11 @@ def run_adapter_campaign(
     )
     primers, measurements = _tasks(config)
     all_tasks = primers + measurements
+    if progress:
+        progress(
+            f"campaign start: {len(primers)} primers, "
+            f"{len(measurements)} measurements, {len(all_tasks)} total processes"
+        )
     rows: list[dict[str, str]] = []
     raw_path = output / "raw_results.csv"
     with raw_path.open("w", newline="", encoding="utf-8") as handle:
@@ -591,6 +597,13 @@ def run_adapter_campaign(
         writer.writeheader()
         handle.flush()
         for order_index, task in enumerate(all_tasks):
+            if progress:
+                progress(
+                    f"[{order_index + 1}/{len(all_tasks)}] "
+                    f"{task['run_role']} scale={task['scale']} "
+                    f"threads={task['threads']} "
+                    f"invalid={task['invalid_case'] or 'none'}"
+                )
             request = AdapterRequest(
                 run_id=str(uuid.uuid4()),
                 workload=config["workload"],
@@ -617,6 +630,12 @@ def run_adapter_campaign(
             writer.writerows(new_rows)
             handle.flush()
             rows.extend(new_rows)
+            if progress:
+                progress(
+                    f"[{order_index + 1}/{len(all_tasks)}] "
+                    f"status={'ok' if execution.succeeded else 'failed'} "
+                    f"wall_ms={execution.wall_time_ns / 1_000_000:.3f}"
+                )
             if not execution.succeeded:
                 (logs / f"{request.run_id}.stdout.log").write_text(
                     execution.stdout, encoding="utf-8"
@@ -628,3 +647,5 @@ def run_adapter_campaign(
                     f"adapter run {request.run_id} failed: {execution.protocol_error}"
                 )
     write_campaign_summary(rows, output / "summary.csv")
+    if progress:
+        progress(f"campaign complete: {output}")
