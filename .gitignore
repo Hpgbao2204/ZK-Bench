@@ -7,6 +7,11 @@ target/
 __pycache__/
 *.py[cod]
 *.log
+.env
+.env.*
+*.key
+*.keystore
+*.secret
 
 # Paper-only analysis and visualisation stay local.
 plots/

@@ -25,6 +25,9 @@ RAW_FIELDS = [
     "adapter_commit", "config_hash", "seed", "repetition", "order_index", "input_scale",
     "native_work_units", "threads", "cores_visible", "phase", "latency_ms", "cpu_time_ms",
     "peak_rss_mb", "swap_delta_mb", "proof_bytes", "verify_ok", "exit_code", "error_type",
+    "page_faults", "swap_read_bytes", "swap_write_bytes", "ram_per_application_unit",
+    "energy_joules", "energy_source", "cold_start", "invalid_proof_kind",
+    "rejection_latency_ms", "metric_unavailable_reason", "boundary_reason",
     "evidence_class", "result_scope",
 ]
 
@@ -100,6 +103,17 @@ def run_reference(config: dict[str, Any], output: Path) -> None:
                 "verify_ok": str(result.valid).lower(),
                 "exit_code": 0 if result.valid else 1,
                 "error_type": "" if result.valid else "reference_predicate_failed",
+                "page_faults": "",
+                "swap_read_bytes": "",
+                "swap_write_bytes": "",
+                "ram_per_application_unit": "",
+                "energy_joules": "",
+                "energy_source": "",
+                "cold_start": "false",
+                "invalid_proof_kind": "",
+                "rejection_latency_ms": "",
+                "metric_unavailable_reason": "reference adapter exposes no process/energy counters",
+                "boundary_reason": "",
                 "evidence_class": "measured",
                 "result_scope": "validation-only-not-a-proof-benchmark",
             }

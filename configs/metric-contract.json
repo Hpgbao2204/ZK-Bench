@@ -1,0 +1,34 @@
+{
+  "adapter_protocol": "json-lines",
+  "application_units": [
+    "credential_assertions",
+    "state_updates",
+    "swap_predicates",
+    "proofs"
+  ],
+  "energy_policy": "hardware-or-os-counter-only",
+  "exclude_numeric_boundaries": [
+    0.0,
+    1.0
+  ],
+  "fine_phases": [
+    "fft_ntt",
+    "msm",
+    "commitment",
+    "transcript",
+    "fri",
+    "merkle",
+    "deserialize",
+    "verify_core"
+  ],
+  "parallel_thread_grid": [
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "saturation_consecutive_steps": 2,
+  "saturation_marginal_gain_threshold": 0.1,
+  "schema_version": "1.0"
+}

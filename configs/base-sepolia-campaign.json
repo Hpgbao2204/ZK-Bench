@@ -1,0 +1,12 @@
+{
+  "chain_id": 84532,
+  "max_test_eth": 0.01,
+  "max_transactions": 100,
+  "network": "base-sepolia",
+  "required_environment": [
+    "BASE_SEPOLIA_RPC_URL",
+    "BASE_SEPOLIA_PRIVATE_KEY",
+    "BASE_SEPOLIA_PUBLIC_ADDRESS"
+  ],
+  "rpc_default": "https://sepolia.base.org"
+}
