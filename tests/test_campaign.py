@@ -116,6 +116,19 @@ class CampaignTests(unittest.TestCase):
         self.assertTrue(any("[8/8]" in message for message in messages))
         self.assertTrue(messages[-1].startswith("campaign complete:"))
 
+    def test_refuses_to_overwrite_existing_evidence(self) -> None:
+        local = REPO / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            output = Path(temp)
+            (output / "raw_results.csv").write_text("existing\n", encoding="utf-8")
+            with self.assertRaisesRegex(FileExistsError, "refusing to overwrite"):
+                run_adapter_campaign(campaign_config(), output, repo=REPO)
+            self.assertEqual(
+                (output / "raw_results.csv").read_text(encoding="utf-8"),
+                "existing\n",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

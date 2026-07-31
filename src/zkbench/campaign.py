@@ -559,9 +559,6 @@ def run_adapter_campaign(
     validate_campaign_config(config)
     if config.get("require_clean_git", True) and _tracked_worktree_dirty(repo):
         raise RuntimeError("tracked worktree must be clean before a measured campaign")
-    output.mkdir(parents=True, exist_ok=True)
-    logs = output / "logs"
-    logs.mkdir(exist_ok=True)
     config_hash = canonical_hash(config)
     adapter_commit = _git_commit(repo)
     command = list(config["command"])
@@ -571,6 +568,19 @@ def run_adapter_campaign(
     if not executable.is_file():
         raise FileNotFoundError(f"adapter executable does not exist: {executable}")
     command[0] = str(executable)
+    evidence_names = {
+        "raw_results.csv",
+        "summary.csv",
+        "config.json",
+        "environment.json",
+    }
+    if output.exists() and any((output / name).exists() for name in evidence_names):
+        raise FileExistsError(
+            f"refusing to overwrite existing benchmark evidence in {output}"
+        )
+    output.mkdir(parents=True, exist_ok=True)
+    logs = output / "logs"
+    logs.mkdir(exist_ok=True)
     (output / "config.json").write_text(
         json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
