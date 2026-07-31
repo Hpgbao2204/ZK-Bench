@@ -32,6 +32,7 @@ RAW_FIELDS = [
     "rejection_latency_ms", "metric_unavailable_reason", "boundary_reason",
     "evidence_class", "result_scope", "run_role", "recorded", "phase_supported",
     "phase_status", "phase_metrics_json", "constraints", "public_inputs",
+    "native_relation_size", "relation_unit",
     "counter_sampling_interval_ms", "counter_samples",
 ]
 

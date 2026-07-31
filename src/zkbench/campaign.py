@@ -52,6 +52,9 @@ SUMMARY_FIELDS = [
     "median_peak_rss_mb",
     "median_page_faults",
     "proof_bytes",
+    "native_relation_size",
+    "relation_unit",
+    "public_inputs",
     "expected_outcomes",
     "stdev_unavailable_reason",
     "excluded_boundary_metrics",
@@ -502,6 +505,8 @@ def execution_rows(
             "phase_metrics_json": "{}",
             "constraints": result.constraints if result else "",
             "public_inputs": result.public_inputs if result else "",
+            "native_relation_size": result.constraints if result else "",
+            "relation_unit": result.relation_unit if result else "",
             "counter_sampling_interval_ms": execution.process.sampling_interval_ms,
             "counter_samples": execution.process.samples,
         }
@@ -644,6 +649,17 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
             proof_sizes = {
                 row["proof_bytes"] for row in group if row["proof_bytes"] != ""
             }
+            relation_sizes = {
+                row["native_relation_size"]
+                for row in group
+                if row["native_relation_size"] != ""
+            }
+            relation_units = {
+                row["relation_unit"] for row in group if row["relation_unit"] != ""
+            }
+            public_input_counts = {
+                row["public_inputs"] for row in group if row["public_inputs"] != ""
+            }
             outcomes = [row["verify_ok"] for row in group if row["verify_ok"]]
             expected = "not-applicable"
             if outcomes:
@@ -763,6 +779,21 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                     ),
                     "proof_bytes": (
                         next(iter(proof_sizes)) if len(proof_sizes) == 1 else ""
+                    ),
+                    "native_relation_size": (
+                        next(iter(relation_sizes))
+                        if len(relation_sizes) == 1
+                        else ""
+                    ),
+                    "relation_unit": (
+                        next(iter(relation_units))
+                        if len(relation_units) == 1
+                        else ""
+                    ),
+                    "public_inputs": (
+                        next(iter(public_input_counts))
+                        if len(public_input_counts) == 1
+                        else ""
                     ),
                     "expected_outcomes": expected,
                     "stdev_unavailable_reason": (

@@ -123,6 +123,7 @@ class AdapterProtocolTests(unittest.TestCase):
         )
         result.validate()
         self.assertTrue(result.verify_ok)
+        self.assertEqual(result.relation_unit, "r1cs_constraints")
 
     def test_failed_result_requires_error_class(self) -> None:
         result = AdapterResult(

@@ -155,6 +155,7 @@ class AdapterResult:
     native_work_units: int
     public_inputs: int
     constraints: int
+    relation_unit: str = "r1cs_constraints"
     invalid_case: str | None = None
     error_type: str | None = None
     schema_version: str = SCHEMA_VERSION
@@ -177,6 +178,8 @@ class AdapterResult:
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 1:
                 raise ValueError(f"{name} must exceed excluded boundary values")
+        if not isinstance(self.relation_unit, str) or not self.relation_unit.strip():
+            raise ValueError("relation_unit must be a nonempty string")
         if self.verify_ok and self.error_type is not None:
             raise ValueError("successful verification cannot have error_type")
         if not self.verify_ok and not self.error_type:

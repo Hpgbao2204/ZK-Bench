@@ -335,6 +335,7 @@ fn real_main() -> Result<(), Box<dyn Error>> {
         native_work_units: outcome.native_units,
         public_inputs: u64::try_from(outcome.public_inputs)?,
         constraints: u64::try_from(outcome.constraints)?,
+        relation_unit: "r1cs_constraints".to_owned(),
         invalid_case: request.invalid_case.clone(),
         error_type: if outcome.verify_ok {
             None

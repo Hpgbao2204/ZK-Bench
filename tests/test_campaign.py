@@ -95,6 +95,16 @@ class CampaignTests(unittest.TestCase):
             )
         )
         self.assertTrue(all(row["recorded"] == "true" for row in summary))
+        process_summary = [
+            row for row in summary if row["phase"] == "adapter_process_wall"
+        ]
+        self.assertTrue(process_summary)
+        self.assertTrue(
+            all(row["relation_unit"] == "r1cs_constraints" for row in process_summary)
+        )
+        self.assertTrue(
+            all(row["native_relation_size"] == "8" for row in process_summary)
+        )
         self.assertTrue(
             all(row["expected_outcomes"] != "unexpected-outcome-present" for row in summary)
         )

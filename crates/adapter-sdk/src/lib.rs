@@ -163,6 +163,7 @@ pub struct AdapterResult {
     pub native_work_units: u64,
     pub public_inputs: u64,
     pub constraints: u64,
+    pub relation_unit: String,
     pub invalid_case: Option<String>,
     pub error_type: Option<String>,
 }
@@ -301,6 +302,7 @@ mod tests {
             native_work_units: 1024,
             public_inputs: 2,
             constraints: 1024,
+            relation_unit: "r1cs_constraints".to_owned(),
             invalid_case: None,
             error_type: None,
         };
