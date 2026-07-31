@@ -17,9 +17,11 @@ use zkbench_adapter_sdk::{
     read_request_from_stdin,
 };
 
+mod relations;
+
 const ADAPTER: &str = "ark-groth16-0.6.0-bn254";
-const WORKLOAD: &str = "controlled_kernel";
-static RAYON_THREADS: OnceLock<usize> = OnceLock::new();
+const CONTROLLED_WORKLOAD: &str = "controlled_kernel";
+static RAYON_THREADS: OnceLock<Result<usize, String>> = OnceLock::new();
 
 #[derive(Clone)]
 struct MultiplicativeChain {
@@ -61,9 +63,37 @@ impl ConstraintSynthesizer<Fr> for MultiplicativeChain {
     }
 }
 
+#[derive(Clone)]
+enum BenchmarkCircuit {
+    Controlled(MultiplicativeChain),
+    Application(relations::ApplicationCircuit),
+}
+
+impl ConstraintSynthesizer<Fr> for BenchmarkCircuit {
+    fn generate_constraints(
+        self,
+        cs: ConstraintSystemRef<Fr>,
+    ) -> Result<(), SynthesisError> {
+        match self {
+            Self::Controlled(circuit) => circuit.generate_constraints(cs),
+            Self::Application(circuit) => circuit.generate_constraints(cs),
+        }
+    }
+}
+
+struct BenchmarkPlan {
+    circuit: BenchmarkCircuit,
+    setup_circuit: BenchmarkCircuit,
+    public_inputs: Vec<Fr>,
+    native_units: u64,
+    profile: BTreeMap<String, f64>,
+}
+
 struct RunOutcome {
     proof_bytes: usize,
     constraints: usize,
+    native_units: u64,
+    public_inputs: usize,
     verify_ok: bool,
 }
 
@@ -105,75 +135,105 @@ fn values(request: &AdapterRequest) -> (Fr, Fr, Fr) {
     (initial, factor, output)
 }
 
-fn configure_rayon(threads: usize) -> Result<(), String> {
-    if let Some(configured) = RAYON_THREADS.get() {
-        return if *configured == threads {
-            Ok(())
-        } else {
-            Err(format!(
-                "adapter process already uses {configured} Rayon threads; \
-                 launch one process per thread configuration"
-            ))
-        };
+fn build_plan(request: &AdapterRequest) -> Result<BenchmarkPlan, Box<dyn Error>> {
+    if request.workload == CONTROLLED_WORKLOAD {
+        if !request.parameters.is_empty() {
+            return Err("controlled_kernel does not accept workload parameters".into());
+        }
+        let steps = usize::try_from(request.scale)?;
+        let (initial, factor, output) = values(request);
+        return Ok(BenchmarkPlan {
+            circuit: BenchmarkCircuit::Controlled(MultiplicativeChain {
+                initial: Some(initial),
+                factor: Some(factor),
+                output: Some(output),
+                steps,
+            }),
+            setup_circuit: BenchmarkCircuit::Controlled(MultiplicativeChain {
+                initial: None,
+                factor: None,
+                output: None,
+                steps,
+            }),
+            public_inputs: vec![factor, output],
+            native_units: request.scale,
+            profile: BTreeMap::from([(
+                "application_units".to_owned(),
+                request.scale as f64,
+            )]),
+        });
     }
-    ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build_global()
-        .map_err(|error| format!("failed to configure Rayon: {error}"))?;
-    RAYON_THREADS
-        .set(threads)
-        .map_err(|_| "Rayon thread configuration raced with another request".to_owned())
+    if relations::supports(&request.workload) {
+        let plan = relations::build_plan(request)?;
+        return Ok(BenchmarkPlan {
+            circuit: BenchmarkCircuit::Application(plan.circuit),
+            setup_circuit: BenchmarkCircuit::Application(plan.setup_circuit),
+            public_inputs: plan.public_inputs,
+            native_units: plan.native_units,
+            profile: plan.profile,
+        });
+    }
+    Err(format!(
+        "unsupported workload {}; expected controlled_kernel, credential, \
+         batched_state, or private_swap",
+        request.workload
+    )
+    .into())
+}
+
+fn configure_rayon(threads: usize) -> Result<(), String> {
+    let configured = RAYON_THREADS.get_or_init(|| {
+        ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global()
+            .map(|_| threads)
+            .map_err(|error| format!("failed to configure Rayon: {error}"))
+    });
+    match configured {
+        Ok(configured_threads) if *configured_threads == threads => Ok(()),
+        Ok(configured_threads) => Err(format!(
+            "adapter process already uses {configured_threads} Rayon threads; \
+             launch one process per thread configuration"
+        )),
+        Err(error) => Err(error.clone()),
+    }
 }
 
 fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
-    if request.workload != WORKLOAD {
-        return Err(format!(
-            "unsupported workload {}; expected {WORKLOAD}",
-            request.workload
-        )
-        .into());
-    }
     configure_rayon(request.threads)?;
-    let steps = usize::try_from(request.scale)?;
 
     let native_timer = PhaseTimer::start();
-    let (initial, factor, output) = values(request);
+    let plan = build_plan(request)?;
     measured_event(
         request,
         "native_execution",
         &native_timer,
-        BTreeMap::from([("application_units".to_owned(), request.scale as f64)]),
+        BTreeMap::from([(
+            "application_units".to_owned(),
+            plan.native_units as f64,
+        )]),
     )?;
 
     let witness_timer = PhaseTimer::start();
     let cs = ConstraintSystem::<Fr>::new_ref();
-    MultiplicativeChain {
-        initial: Some(initial),
-        factor: Some(factor),
-        output: Some(output),
-        steps,
-    }
-    .generate_constraints(cs.clone())?;
+    plan.circuit.clone().generate_constraints(cs.clone())?;
     let constraints = cs.num_constraints();
     if !cs.is_satisfied()? {
-        return Err("controlled kernel witness does not satisfy R1CS".into());
+        return Err(format!("{} witness does not satisfy R1CS", request.workload).into());
     }
+    let mut witness_metrics = plan.profile.clone();
+    witness_metrics.insert("constraint_count".to_owned(), constraints as f64);
     measured_event(
         request,
         "witness",
         &witness_timer,
-        BTreeMap::from([("constraint_count".to_owned(), constraints as f64)]),
+        witness_metrics,
     )?;
 
     let setup_timer = PhaseTimer::start();
     let mut setup_rng = StdRng::seed_from_u64(request.seed ^ 0xA11C_E5E7);
     let proving_key = Groth16::<Bn254>::generate_random_parameters_with_reduction(
-        MultiplicativeChain {
-            initial: None,
-            factor: None,
-            output: None,
-            steps,
-        },
+        plan.setup_circuit,
         &mut setup_rng,
     )?;
     let processed_vk = prepare_verifying_key(&proving_key.vk);
@@ -187,12 +247,7 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     let prove_timer = PhaseTimer::start();
     let mut proof_rng = StdRng::seed_from_u64(request.seed ^ 0xBADC_0FFE);
     let proof = Groth16::<Bn254>::create_random_proof_with_reduction(
-        MultiplicativeChain {
-            initial: Some(initial),
-            factor: Some(factor),
-            output: Some(output),
-            steps,
-        },
+        plan.circuit,
         &proving_key,
         &mut proof_rng,
     )?;
@@ -218,9 +273,12 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     let decoded_proof = Proof::<Bn254>::deserialize_compressed(proof_buffer.as_slice())?;
     let deserialize_elapsed = deserialize_timer.elapsed();
 
-    let mut public_output = output;
+    let mut public_inputs = plan.public_inputs;
     if request.invalid_case.as_deref() == Some("wrong_public_input") {
-        public_output += Fr::ONE;
+        let last = public_inputs
+            .last_mut()
+            .ok_or("benchmark relation must expose public inputs")?;
+        *last += Fr::ONE;
     } else if request.invalid_case.is_some() {
         return Err(format!(
             "unsupported invalid case: {}",
@@ -230,7 +288,7 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     }
     let verify_core_timer = PhaseTimer::start();
     let verify_ok =
-        Groth16::<Bn254>::verify_proof(&processed_vk, &decoded_proof, &[factor, public_output])?;
+        Groth16::<Bn254>::verify_proof(&processed_vk, &decoded_proof, &public_inputs)?;
     let verify_core_elapsed = verify_core_timer.elapsed();
     let verify_total_elapsed = verify_total_timer.elapsed();
     measured_duration(
@@ -251,6 +309,8 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     Ok(RunOutcome {
         proof_bytes: proof_buffer.len(),
         constraints,
+        native_units: plan.native_units,
+        public_inputs: public_inputs.len(),
         verify_ok,
     })
 }
@@ -272,8 +332,8 @@ fn real_main() -> Result<(), Box<dyn Error>> {
         adapter: ADAPTER.to_owned(),
         verify_ok: outcome.verify_ok,
         proof_bytes: u64::try_from(outcome.proof_bytes)?,
-        native_work_units: request.scale,
-        public_inputs: 2,
+        native_work_units: outcome.native_units,
+        public_inputs: u64::try_from(outcome.public_inputs)?,
         constraints: u64::try_from(outcome.constraints)?,
         invalid_case: request.invalid_case.clone(),
         error_type: if outcome.verify_ok {
@@ -314,10 +374,40 @@ mod tests {
     }
 
     #[test]
-    fn rejects_mislabeled_workload() {
+    fn private_swap_proves_and_rejects_wrong_public_input() {
+        let request = AdapterRequest {
+            run_id: "swap-valid".to_owned(),
+            workload: "private_swap".to_owned(),
+            scale: 2,
+            threads: 2,
+            seed: 11,
+            mode: "warm".to_owned(),
+            invalid_case: None,
+            parameters: BTreeMap::from([
+                ("hash_rounds".to_owned(), 5_u64.into()),
+                ("range_bits".to_owned(), 32_u64.into()),
+                ("time_bits".to_owned(), 16_u64.into()),
+                ("merkle_depth".to_owned(), 4_u64.into()),
+                ("membership_paths".to_owned(), 2_u64.into()),
+                ("ablation".to_owned(), "full".into()),
+            ]),
+        };
+        let valid = run(&request).unwrap();
+        assert!(valid.verify_ok);
+        assert!(valid.constraints > 2);
+        assert!(valid.public_inputs > 2);
+
+        let mut invalid = request;
+        invalid.run_id = "swap-invalid".to_owned();
+        invalid.invalid_case = Some("wrong_public_input".to_owned());
+        assert!(!run(&invalid).unwrap().verify_ok);
+    }
+
+    #[test]
+    fn rejects_unknown_workload() {
         let request = AdapterRequest {
             run_id: "wrong-workload".to_owned(),
-            workload: "credential".to_owned(),
+            workload: "unknown_workload".to_owned(),
             scale: 8,
             threads: 2,
             seed: 7,
