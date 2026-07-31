@@ -47,10 +47,10 @@ impl RelationParameters {
             return Err(format!("unsupported ablation: {ablation}"));
         }
         Ok(Self {
-            age_bits: numeric_parameter(request, "age_bits", 8)?,
-            update_bits: numeric_parameter(request, "update_bits", 16)?,
-            range_bits: numeric_parameter(request, "range_bits", 32)?,
-            time_bits: numeric_parameter(request, "time_bits", 16)?,
+            age_bits: bit_parameter(request, "age_bits", 8)?,
+            update_bits: bit_parameter(request, "update_bits", 16)?,
+            range_bits: bit_parameter(request, "range_bits", 32)?,
+            time_bits: bit_parameter(request, "time_bits", 16)?,
             hash_rounds: numeric_parameter(request, "hash_rounds", 5)?,
             merkle_depth: numeric_parameter(request, "merkle_depth", 8)?,
             membership_paths: numeric_parameter(request, "membership_paths", 2)?,
@@ -73,6 +73,18 @@ impl RelationParameters {
     fn authorization_enabled(&self) -> bool {
         self.ablation != "no_authorization"
     }
+}
+
+fn bit_parameter(
+    request: &AdapterRequest,
+    name: &str,
+    default: usize,
+) -> Result<usize, String> {
+    let value = numeric_parameter(request, name, default)?;
+    if value > 64 {
+        return Err(format!("{name} must not exceed 64 bits"));
+    }
+    Ok(value)
 }
 
 fn numeric_parameter(
