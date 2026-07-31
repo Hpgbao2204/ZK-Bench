@@ -43,17 +43,21 @@ class SystemMetricsTests(unittest.TestCase):
             (process / "io").write_text(
                 "read_bytes: 4096\nwrite_bytes: 8192\n", encoding="utf-8"
             )
-            # pid (comm), then fields 3..12; minflt=7 and majflt=5.
+            # pid (comm), fields 3..15; minflt=7, majflt=5, CPU ticks=11+13.
             (process / "stat").write_text(
-                "42 (adapter worker) S 1 1 1 0 0 0 7 0 5 0\n", encoding="utf-8"
+                "42 (adapter worker) S 1 1 1 0 0 0 7 0 5 0 11 13\n",
+                encoding="utf-8",
             )
-            counters = LinuxProcProcessCounterProvider(Path(temp)).capture(42)
+            counters = LinuxProcProcessCounterProvider(
+                Path(temp), clock_ticks_per_second=100
+            ).capture(42)
         self.assertTrue(counters.supported, counters.unavailable_reason)
         self.assertEqual(counters.peak_rss_bytes, 2048 * 1024)
         self.assertEqual(counters.swap_bytes, 32 * 1024)
         self.assertEqual(counters.page_faults, 12)
         self.assertEqual(counters.read_bytes, 4096)
         self.assertEqual(counters.write_bytes, 8192)
+        self.assertEqual(counters.cpu_time_ns, 240_000_000)
         self.assertIsNone(counters.private_bytes)
 
 
