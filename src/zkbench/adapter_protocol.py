@@ -37,6 +37,39 @@ def is_numeric_boundary(value: float) -> bool:
 
 
 @dataclass(frozen=True)
+class AdapterRequest:
+    run_id: str
+    workload: str
+    scale: int
+    threads: int
+    seed: int
+    mode: str = "warm"
+    invalid_case: str | None = None
+
+    def validate(self) -> None:
+        if not self.run_id.strip():
+            raise ValueError("run_id must not be empty")
+        if not self.workload.strip():
+            raise ValueError("workload must not be empty")
+        if isinstance(self.scale, bool) or not isinstance(self.scale, int) or self.scale <= 1:
+            raise ValueError("scale must exceed excluded boundary values")
+        if (
+            isinstance(self.threads, bool)
+            or not isinstance(self.threads, int)
+            or self.threads < 1
+        ):
+            raise ValueError("threads must be a positive integer")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise ValueError("seed must be a nonnegative integer")
+        if self.mode not in {"cold", "warm"}:
+            raise ValueError("mode must be cold or warm")
+
+    def to_json(self) -> str:
+        self.validate()
+        return json.dumps(self.__dict__, sort_keys=True, separators=(",", ":"))
+
+
+@dataclass(frozen=True)
 class PhaseEvent:
     run_id: str
     adapter: str
@@ -95,14 +128,61 @@ class PhaseEvent:
         return json.dumps(self.__dict__, sort_keys=True, separators=(",", ":"))
 
 
-def parse_json_lines(lines: Iterable[str]) -> list[PhaseEvent]:
-    events: list[PhaseEvent] = []
+@dataclass(frozen=True)
+class AdapterResult:
+    run_id: str
+    adapter: str
+    verify_ok: bool
+    proof_bytes: int
+    native_work_units: int
+    public_inputs: int
+    constraints: int
+    invalid_case: str | None = None
+    error_type: str | None = None
+    schema_version: str = SCHEMA_VERSION
+    event_type: str = "result"
+
+    @classmethod
+    def from_mapping(cls, value: dict[str, Any]) -> "AdapterResult":
+        result = cls(**value)
+        result.validate()
+        return result
+
+    def validate(self) -> None:
+        if self.schema_version != SCHEMA_VERSION or self.event_type != "result":
+            raise ValueError("invalid adapter result schema")
+        if not self.run_id.strip() or not self.adapter.strip():
+            raise ValueError("adapter result identifiers must not be empty")
+        if not isinstance(self.verify_ok, bool):
+            raise ValueError("verify_ok must be boolean")
+        for name in ("proof_bytes", "native_work_units", "public_inputs", "constraints"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 1:
+                raise ValueError(f"{name} must exceed excluded boundary values")
+        if self.verify_ok and self.error_type is not None:
+            raise ValueError("successful verification cannot have error_type")
+        if not self.verify_ok and not self.error_type:
+            raise ValueError("failed verification requires error_type")
+
+
+AdapterEvent = PhaseEvent | AdapterResult
+
+
+def parse_json_lines(lines: Iterable[str]) -> list[AdapterEvent]:
+    events: list[AdapterEvent] = []
     for line_number, line in enumerate(lines, start=1):
         if not line.strip():
             continue
         try:
             value = json.loads(line)
-            events.append(PhaseEvent.from_mapping(value))
+            if not isinstance(value, dict):
+                raise ValueError("adapter event must be a JSON object")
+            if value.get("event_type") == "phase":
+                events.append(PhaseEvent.from_mapping(value))
+            elif value.get("event_type") == "result":
+                events.append(AdapterResult.from_mapping(value))
+            else:
+                raise ValueError(f"unknown event_type: {value.get('event_type')}")
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise ValueError(f"invalid adapter event on line {line_number}: {exc}") from exc
     return events

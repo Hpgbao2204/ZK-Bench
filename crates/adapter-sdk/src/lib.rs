@@ -125,6 +125,27 @@ pub struct PhaseTimer {
     start: Instant,
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct AdapterResult {
+    pub schema_version: &'static str,
+    pub event_type: &'static str,
+    pub run_id: String,
+    pub adapter: String,
+    pub verify_ok: bool,
+    pub proof_bytes: u64,
+    pub native_work_units: u64,
+    pub public_inputs: u64,
+    pub constraints: u64,
+    pub invalid_case: Option<String>,
+    pub error_type: Option<String>,
+}
+
+impl AdapterResult {
+    pub fn to_json_line(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+}
+
 impl PhaseTimer {
     pub fn start() -> Self {
         Self {
@@ -154,6 +175,16 @@ pub fn emit(event: &PhaseEvent) -> Result<(), String> {
         event
             .to_json_line()
             .map_err(|error| format!("failed to serialize phase event: {error}"))?
+    );
+    Ok(())
+}
+
+pub fn emit_result(result: &AdapterResult) -> Result<(), String> {
+    println!(
+        "{}",
+        result
+            .to_json_line()
+            .map_err(|error| format!("failed to serialize adapter result: {error}"))?
     );
     Ok(())
 }
@@ -206,5 +237,25 @@ mod tests {
         );
         assert_eq!(event.elapsed_ns, None);
         assert!(event.metrics.is_empty());
+    }
+
+    #[test]
+    fn result_keeps_verification_as_boolean() {
+        let result = AdapterResult {
+            schema_version: SCHEMA_VERSION,
+            event_type: "result",
+            run_id: "run-7".to_owned(),
+            adapter: "test-adapter".to_owned(),
+            verify_ok: true,
+            proof_bytes: 128,
+            native_work_units: 1024,
+            public_inputs: 2,
+            constraints: 1024,
+            invalid_case: None,
+            error_type: None,
+        };
+        let json = result.to_json_line().unwrap();
+        assert!(json.contains("\"verify_ok\":true"));
+        assert!(!json.contains("\"verify_ok\":1"));
     }
 }

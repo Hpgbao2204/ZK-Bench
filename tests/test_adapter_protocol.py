@@ -6,10 +6,26 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from zkbench.adapter_protocol import PhaseEvent, parse_json_lines  # noqa: E402
+from zkbench.adapter_protocol import (  # noqa: E402
+    AdapterRequest,
+    AdapterResult,
+    PhaseEvent,
+    parse_json_lines,
+)
 
 
 class AdapterProtocolTests(unittest.TestCase):
+    def test_request_rejects_boundary_scale(self) -> None:
+        request = AdapterRequest(
+            run_id="r1",
+            workload="controlled_kernel",
+            scale=1,
+            threads=2,
+            seed=7,
+        )
+        with self.assertRaisesRegex(ValueError, "boundary"):
+            request.validate()
+
     def test_valid_phase_round_trip(self) -> None:
         event = PhaseEvent(
             run_id="r1",
@@ -64,6 +80,32 @@ class AdapterProtocolTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "not boolean"):
             event.validate()
+
+    def test_result_keeps_boolean_and_nonboundary_counts(self) -> None:
+        result = AdapterResult(
+            run_id="r1",
+            adapter="ark-groth16",
+            verify_ok=True,
+            proof_bytes=128,
+            native_work_units=1024,
+            public_inputs=2,
+            constraints=1024,
+        )
+        result.validate()
+        self.assertTrue(result.verify_ok)
+
+    def test_failed_result_requires_error_class(self) -> None:
+        result = AdapterResult(
+            run_id="r1",
+            adapter="ark-groth16",
+            verify_ok=False,
+            proof_bytes=128,
+            native_work_units=1024,
+            public_inputs=2,
+            constraints=1024,
+        )
+        with self.assertRaisesRegex(ValueError, "error_type"):
+            result.validate()
 
 
 if __name__ == "__main__":
