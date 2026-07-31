@@ -1,0 +1,23 @@
+[package]
+name = "zkbench-jellyfish-plonk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ark-bn254-jf = { package = "ark-bn254", version = "0.5", features = ["curve"] }
+ark-ff-jf = { package = "ark-ff", version = "0.5" }
+ark-serialize-jf = { package = "ark-serialize", version = "0.5" }
+jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "jf-plonk-v0.8.0", features = [
+  "parallel",
+  "std",
+  "test-srs",
+] }
+jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "jf-relation-v0.5.0", features = [
+  "parallel",
+  "std",
+] }
+rand_chacha = "0.3.1"
+rand_core = "0.6.4"
+rayon.workspace = true
+zkbench-adapter-sdk = { path = "../../crates/adapter-sdk" }

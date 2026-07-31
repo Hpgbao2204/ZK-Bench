@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "adapters/ark-groth16",
+    "adapters/jellyfish-plonk",
     "crates/adapter-sdk",
 ]
 resolver = "2"
