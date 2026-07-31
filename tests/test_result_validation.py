@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import sys
 import tempfile
 import unittest
@@ -68,6 +69,27 @@ class ResultValidationTests(unittest.TestCase):
             errors = validate_result_bundle(bundle, repo=REPO)
         self.assertTrue(
             any("broken parameter-set lineage" in error for error in errors)
+        )
+
+    def test_dirty_worktree_is_rejected_outside_unit_test_scope(self) -> None:
+        config = campaign_config()
+        config["result_scope"] = "pilot"
+        local = REPO / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            bundle = Path(temp)
+            run_adapter_campaign(config, bundle, repo=REPO)
+            environment_path = bundle / "environment.json"
+            environment = json.loads(environment_path.read_text(encoding="utf-8"))
+            environment["tracked_worktree_dirty"] = True
+            environment_path.write_text(
+                json.dumps(environment, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            errors = validate_result_bundle(bundle, repo=REPO)
+        self.assertIn(
+            "measured evidence was produced from a dirty tracked worktree",
+            errors,
         )
 
 

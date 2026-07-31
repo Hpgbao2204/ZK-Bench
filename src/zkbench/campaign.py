@@ -271,6 +271,7 @@ def _environment(
     config_hash: str,
     adapter_commit: str,
     command: list[str],
+    tracked_worktree_dirty: bool,
 ) -> dict[str, Any]:
     affinity = None
     if hasattr(os, "sched_getaffinity"):
@@ -290,6 +291,7 @@ def _environment(
         "python": sys.version,
         "runner": "adapter-process-campaign",
         "thermal_control": "not controlled by zkbench",
+        "tracked_worktree_dirty": tracked_worktree_dirty,
     }
 
 
@@ -856,7 +858,8 @@ def run_adapter_campaign(
     progress: Callable[[str], None] | None = None,
 ) -> None:
     validate_campaign_config(config)
-    if config.get("require_clean_git", True) and _tracked_worktree_dirty(repo):
+    tracked_worktree_dirty = _tracked_worktree_dirty(repo)
+    if config.get("require_clean_git", True) and tracked_worktree_dirty:
         raise RuntimeError("tracked worktree must be clean before a measured campaign")
     config_hash = canonical_hash(config)
     adapter_commit = _git_commit(repo)
@@ -885,7 +888,13 @@ def run_adapter_campaign(
     )
     (output / "environment.json").write_text(
         json.dumps(
-            _environment(repo, config_hash, adapter_commit, command),
+            _environment(
+                repo,
+                config_hash,
+                adapter_commit,
+                command,
+                tracked_worktree_dirty,
+            ),
             indent=2,
             sort_keys=True,
         )

@@ -153,6 +153,9 @@ def validate_result_bundle(bundle: Path, *, repo: Path | None = None) -> list[st
     raw_commits = {row["adapter_commit"] for row in raw}
     if raw_commits != {adapter_commit}:
         errors.append("raw adapter_commit does not match environment")
+    tracked_worktree_dirty = environment.get("tracked_worktree_dirty", False)
+    if tracked_worktree_dirty and config.get("result_scope") != "unit-test":
+        errors.append("measured evidence was produced from a dirty tracked worktree")
     if parameter_sets is not None:
         expected_parameters = {
             item["id"]: json.dumps(
@@ -237,7 +240,7 @@ def validate_result_bundle(bundle: Path, *, repo: Path | None = None) -> list[st
         repo = repo.resolve()
         expected_lock_hash = environment.get("cargo_lock_sha256")
         evidence_commit = environment.get("adapter_commit")
-        if expected_lock_hash and evidence_commit:
+        if expected_lock_hash and evidence_commit and not tracked_worktree_dirty:
             result = subprocess.run(
                 ["git", "show", f"{evidence_commit}:Cargo.lock"],
                 cwd=repo,
