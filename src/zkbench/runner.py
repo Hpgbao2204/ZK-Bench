@@ -25,7 +25,8 @@ RAW_FIELDS = [
     "adapter_commit", "config_hash", "seed", "repetition", "order_index", "input_scale",
     "native_work_units", "threads", "cores_visible", "phase", "latency_ms", "cpu_time_ms",
     "peak_rss_mb", "swap_delta_mb", "proof_bytes", "verify_ok", "exit_code", "error_type",
-    "page_faults", "swap_read_bytes", "swap_write_bytes", "ram_per_application_unit",
+    "page_faults", "process_read_bytes", "process_write_bytes", "peak_swap_mb",
+    "ram_per_application_unit", "process_counter_provider", "measurement_scope",
     "energy_joules", "energy_source", "cold_start", "invalid_proof_kind",
     "rejection_latency_ms", "metric_unavailable_reason", "boundary_reason",
     "evidence_class", "result_scope",
@@ -104,9 +105,12 @@ def run_reference(config: dict[str, Any], output: Path) -> None:
                 "exit_code": 0 if result.valid else 1,
                 "error_type": "" if result.valid else "reference_predicate_failed",
                 "page_faults": "",
-                "swap_read_bytes": "",
-                "swap_write_bytes": "",
+                "process_read_bytes": "",
+                "process_write_bytes": "",
+                "peak_swap_mb": "",
                 "ram_per_application_unit": "",
+                "process_counter_provider": "",
+                "measurement_scope": "phase",
                 "energy_joules": "",
                 "energy_source": "",
                 "cold_start": "false",
@@ -145,12 +149,23 @@ def write_summary(rows: list[dict[str, Any]], path: Path) -> None:
     fields = [
         "claim_id", "experiment_id", "workload", "variant", "n", "mean_latency_ms",
         "stdev_latency_ms", "p50_latency_ms", "p95_latency_ms", "min_latency_ms",
-        "max_latency_ms", "result_scope",
+        "max_latency_ms", "stdev_unavailable_reason", "excluded_boundary_metrics",
+        "result_scope",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         for (workload, variant), values in sorted(groups.items()):
+            excluded: list[str] = []
+
+            def quantitative(name: str, value: float) -> str:
+                formatted = f"{value:.6f}"
+                if float(formatted) in (0.0, 1.0):
+                    excluded.append(name)
+                    return ""
+                return formatted
+
+            stdev = statistics.stdev(values) if len(values) > 1 else None
             writer.writerow(
                 {
                     "claim_id": rows[0]["claim_id"],
@@ -158,13 +173,30 @@ def write_summary(rows: list[dict[str, Any]], path: Path) -> None:
                     "workload": workload,
                     "variant": variant,
                     "n": len(values),
-                    "mean_latency_ms": f"{statistics.mean(values):.6f}",
-                    "stdev_latency_ms": f"{statistics.stdev(values):.6f}"
-                    if len(values) > 1 else "0.000000",
-                    "p50_latency_ms": f"{percentile(values, 0.50):.6f}",
-                    "p95_latency_ms": f"{percentile(values, 0.95):.6f}",
-                    "min_latency_ms": f"{min(values):.6f}",
-                    "max_latency_ms": f"{max(values):.6f}",
+                    "mean_latency_ms": quantitative(
+                        "mean_latency_ms", statistics.mean(values)
+                    ),
+                    "stdev_latency_ms": quantitative("stdev_latency_ms", stdev)
+                    if stdev is not None
+                    else "",
+                    "p50_latency_ms": quantitative(
+                        "p50_latency_ms", percentile(values, 0.50)
+                    ),
+                    "p95_latency_ms": quantitative(
+                        "p95_latency_ms", percentile(values, 0.95)
+                    ),
+                    "min_latency_ms": quantitative("min_latency_ms", min(values)),
+                    "max_latency_ms": quantitative("max_latency_ms", max(values)),
+                    "stdev_unavailable_reason": (
+                        "requires at least two observations"
+                        if stdev is None
+                        else (
+                            "exact boundary excluded"
+                            if "stdev_latency_ms" in excluded
+                            else ""
+                        )
+                    ),
+                    "excluded_boundary_metrics": ";".join(excluded),
                     "result_scope": rows[0]["result_scope"],
                 }
             )
