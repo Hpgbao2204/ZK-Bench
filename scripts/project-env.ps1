@@ -8,6 +8,7 @@ $env:CARGO_TARGET_DIR = Join-Path $localRoot "cargo-target"
 $env:PIP_CACHE_DIR = Join-Path $localRoot "pip-cache"
 $env:PYTHONPYCACHEPREFIX = Join-Path $localRoot "python-cache"
 $env:PYTHONPATH = Join-Path $repoRoot "src"
+$env:GIT_CONFIG_GLOBAL = Join-Path $localRoot "git-home\gitconfig"
 
 New-Item -ItemType Directory -Force -Path @(
     $env:CARGO_HOME,
