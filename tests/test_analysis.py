@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from zkbench.analysis import (  # noqa: E402
     application_throughput,
     bootstrap_interval,
+    bootstrap_power_law_exponent_interval,
     bootstrap_speedup_interval,
     fit_power_law,
     native_overhead,
@@ -62,6 +63,23 @@ class AnalysisTests(unittest.TestCase):
         )
         self.assertGreater(interval[0], 1.5)
         self.assertLess(interval[1], 2.2)
+
+    def test_bootstrap_scaling_exponent_interval(self) -> None:
+        samples = {
+            8.0: [15.5, 16.0, 16.5],
+            16.0: [31.0, 32.0, 33.0],
+            32.0: [62.0, 64.0, 66.0],
+            64.0: [124.0, 128.0, 132.0],
+        }
+        first = bootstrap_power_law_exponent_interval(
+            samples, seed=17, resamples=500
+        )
+        second = bootstrap_power_law_exponent_interval(
+            samples, seed=17, resamples=500
+        )
+        self.assertEqual(first, second)
+        self.assertLess(first[0], 1.0)
+        self.assertGreater(first[1], 1.0)
 
 
 if __name__ == "__main__":

@@ -31,14 +31,14 @@ def campaign_config() -> dict[str, object]:
         "invalid_cases": [
             {
                 "kind": "wrong_public_input",
-                "repetitions": 2,
+                "repetitions": 3,
                 "scales": [8],
                 "threads": [2],
             }
         ],
         "mode": "cold",
         "os_cache_primer_runs": 1,
-        "repetitions": 2,
+        "repetitions": 3,
         "require_clean_git": False,
         "result_scope": "unit-test",
         "sampling_interval_ms": 2,
@@ -112,8 +112,8 @@ class CampaignTests(unittest.TestCase):
                 repo=REPO,
                 progress=messages.append,
             )
-        self.assertIn("8 total processes", messages[0])
-        self.assertTrue(any("[8/8]" in message for message in messages))
+        self.assertIn("11 total processes", messages[0])
+        self.assertTrue(any("[11/11]" in message for message in messages))
         self.assertTrue(messages[-1].startswith("campaign complete:"))
 
     def test_refuses_to_overwrite_existing_evidence(self) -> None:

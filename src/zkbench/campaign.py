@@ -18,12 +18,20 @@ from typing import Any, Callable, Iterable
 
 from .adapter_protocol import AdapterRequest, PhaseEvent
 from .adapter_runner import AdapterExecution, execute_adapter
+from .analysis import (
+    bootstrap_power_law_exponent_interval,
+    bootstrap_speedup_interval,
+    fit_power_law,
+    parallel_profile,
+)
 from .runner import RAW_FIELDS, canonical_hash, percentile
 
 
 SUMMARY_FIELDS = [
     "claim_id",
     "experiment_id",
+    "adapter_commit",
+    "config_hash",
     "workload",
     "variant",
     "phase",
@@ -46,6 +54,16 @@ SUMMARY_FIELDS = [
     "stdev_unavailable_reason",
     "excluded_boundary_metrics",
     "metric_unavailable_reason",
+    "speedup_vs_one_thread",
+    "speedup_ci_low",
+    "speedup_ci_high",
+    "parallel_efficiency",
+    "saturation_threads",
+    "scaling_coefficient_a",
+    "scaling_exponent_b",
+    "scaling_exponent_ci_low",
+    "scaling_exponent_ci_high",
+    "scaling_r_squared",
     "evidence_class",
     "result_scope",
     "run_role",
@@ -96,7 +114,7 @@ def validate_campaign_config(config: dict[str, Any]) -> None:
     _integer_list(config, "scales", minimum=2)
     _integer_list(config, "threads", minimum=1)
     for name, minimum in (
-        ("repetitions", 2),
+        ("repetitions", 3),
         ("os_cache_primer_runs", 1),
         ("seed", 2),
     ):
@@ -129,9 +147,9 @@ def validate_campaign_config(config: dict[str, Any]) -> None:
         if (
             isinstance(repetitions, bool)
             or not isinstance(repetitions, int)
-            or repetitions < 2
+            or repetitions < 3
         ):
-            raise ValueError("invalid-case repetitions must be >= 2")
+            raise ValueError("invalid-case repetitions must be >= 3")
 
 
 def _git_commit(repo: Path) -> str:
@@ -442,6 +460,41 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
             row["invalid_proof_kind"],
         )
         groups.setdefault(key, []).append(row)
+    prove_samples: dict[tuple[int, int], list[float]] = {}
+    for (phase, scale, threads, invalid_kind), group in groups.items():
+        if phase != "prove_total" or invalid_kind:
+            continue
+        values = _nonboundary_values(group, "latency_ms")
+        if values:
+            prove_samples[(int(scale), int(threads))] = values
+    prove_scales = sorted({scale for scale, _ in prove_samples})
+    prove_threads = sorted({threads for _, threads in prove_samples})
+    profiles = {}
+    for scale in prove_scales:
+        samples = {
+            threads: prove_samples[(scale, threads)]
+            for threads in prove_threads
+            if (scale, threads) in prove_samples
+        }
+        if 1 in samples:
+            profiles[scale] = parallel_profile(samples)
+    scaling = {}
+    scaling_intervals = {}
+    seed_base = int(recorded[0]["config_hash"][:16], 16) if recorded else 2
+    for threads in prove_threads:
+        samples_by_scale = {
+            scale: prove_samples[(scale, threads)]
+            for scale in prove_scales
+            if (scale, threads) in prove_samples
+        }
+        if len(samples_by_scale) >= 3:
+            scaling[threads] = fit_power_law(
+                (scale, statistics.median(values))
+                for scale, values in samples_by_scale.items()
+            )
+            scaling_intervals[threads] = bootstrap_power_law_exponent_interval(
+                samples_by_scale, seed=seed_base ^ threads
+            )
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=SUMMARY_FIELDS)
         writer.writeheader()
@@ -476,6 +529,40 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                     else "unexpected-outcome-present"
                 )
             stdev = statistics.stdev(latencies) if len(latencies) > 1 else None
+            speedup = None
+            efficiency = None
+            speedup_ci: tuple[float, float] | None = None
+            saturation = None
+            fit = None
+            exponent_ci: tuple[float, float] | None = None
+            derived_unavailable_reason = None
+            if phase == "prove_total" and not invalid_kind:
+                scale_number = int(scale)
+                thread_number = int(threads)
+                profile = profiles.get(scale_number)
+                if profile:
+                    saturation = profile.saturation_threads
+                    point = next(
+                        (
+                            item
+                            for item in profile.points
+                            if item.threads == thread_number
+                        ),
+                        None,
+                    )
+                    if point:
+                        speedup = point.speedup
+                        efficiency = point.efficiency
+                        try:
+                            speedup_ci = bootstrap_speedup_interval(
+                                prove_samples[(scale_number, 1)],
+                                prove_samples[(scale_number, thread_number)],
+                                seed=seed_base ^ scale_number ^ thread_number,
+                            )
+                        except ValueError as error:
+                            derived_unavailable_reason = str(error)
+                fit = scaling.get(thread_number)
+                exponent_ci = scaling_intervals.get(thread_number)
             reasons = sorted(
                 {
                     row["metric_unavailable_reason"]
@@ -483,10 +570,14 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                     if row["metric_unavailable_reason"]
                 }
             )
+            if derived_unavailable_reason:
+                reasons.append(derived_unavailable_reason)
             writer.writerow(
                 {
                     "claim_id": group[0]["claim_id"],
                     "experiment_id": group[0]["experiment_id"],
+                    "adapter_commit": group[0]["adapter_commit"],
+                    "config_hash": group[0]["config_hash"],
                     "workload": group[0]["workload"],
                     "variant": group[0]["variant"],
                     "phase": phase,
@@ -541,6 +632,39 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                     ),
                     "excluded_boundary_metrics": ";".join(excluded),
                     "metric_unavailable_reason": "; ".join(reasons),
+                    "speedup_vs_one_thread": metric(
+                        "speedup_vs_one_thread", speedup
+                    ),
+                    "speedup_ci_low": metric(
+                        "speedup_ci_low",
+                        speedup_ci[0] if speedup_ci else None,
+                    ),
+                    "speedup_ci_high": metric(
+                        "speedup_ci_high",
+                        speedup_ci[1] if speedup_ci else None,
+                    ),
+                    "parallel_efficiency": metric(
+                        "parallel_efficiency", efficiency
+                    ),
+                    "saturation_threads": saturation or "",
+                    "scaling_coefficient_a": metric(
+                        "scaling_coefficient_a",
+                        fit.coefficient_a if fit else None,
+                    ),
+                    "scaling_exponent_b": metric(
+                        "scaling_exponent_b", fit.exponent_b if fit else None
+                    ),
+                    "scaling_exponent_ci_low": metric(
+                        "scaling_exponent_ci_low",
+                        exponent_ci[0] if exponent_ci else None,
+                    ),
+                    "scaling_exponent_ci_high": metric(
+                        "scaling_exponent_ci_high",
+                        exponent_ci[1] if exponent_ci else None,
+                    ),
+                    "scaling_r_squared": metric(
+                        "scaling_r_squared", fit.r_squared if fit else None
+                    ),
                     "evidence_class": group[0]["evidence_class"],
                     "result_scope": group[0]["result_scope"],
                     "run_role": "measurement",

@@ -196,3 +196,42 @@ def bootstrap_speedup_interval(
     lower_index = max(0, int(tail * len(estimates)))
     upper_index = min(len(estimates) - 1, int((1.0 - tail) * len(estimates)) - 1)
     return estimates[lower_index], estimates[upper_index]
+
+
+def bootstrap_power_law_exponent_interval(
+    latency_samples_by_scale: Mapping[float, Sequence[float]],
+    *,
+    seed: int,
+    resamples: int = 2_000,
+    confidence: float = 0.95,
+) -> tuple[float, float]:
+    if len(latency_samples_by_scale) < 3:
+        raise ValueError("scaling interval requires at least three scale points")
+    clean: dict[float, list[float]] = {}
+    for scale, values in latency_samples_by_scale.items():
+        clean_scale = _positive_nonboundary(scale, "scale")
+        clean_values = [_positive_nonboundary(value, "latency_ms") for value in values]
+        if len(clean_values) < 3:
+            raise ValueError("scaling interval requires three observations per scale")
+        clean[clean_scale] = clean_values
+    if resamples < 100:
+        raise ValueError("use at least 100 bootstrap resamples")
+    if not 0 < confidence < 1:
+        raise ValueError("confidence must be between zero and one")
+    rng = random.Random(seed)
+    estimates: list[float] = []
+    for _ in range(resamples):
+        samples = []
+        for scale, values in clean.items():
+            resampled = [rng.choice(values) for _ in values]
+            samples.append((scale, median(resampled)))
+        exponent = fit_power_law(samples).exponent_b
+        if not is_numeric_boundary(exponent):
+            estimates.append(exponent)
+    if len(estimates) < 100:
+        raise ValueError("too few non-boundary scaling estimates")
+    estimates.sort()
+    tail = (1.0 - confidence) / 2.0
+    lower_index = max(0, int(tail * len(estimates)))
+    upper_index = min(len(estimates) - 1, int((1.0 - tail) * len(estimates)) - 1)
+    return estimates[lower_index], estimates[upper_index]
