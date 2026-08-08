@@ -80,6 +80,13 @@ Check application semantics inside WSL after building the adapters:
 wsl bash -lc 'cd /mnt/d/ZK\ Bench && python3 scripts/check_cross_adapter.py --groth-command .local/wsl-cargo-target/release/zkbench-ark-groth16 --plonk-command .local/wsl-cargo-target/release/zkbench-jellyfish-plonk'
 ```
 
+Promote a pilot to a ten-repetition final-candidate config without editing the
+pilot evidence in place:
+
+```powershell
+python scripts\promote_campaign.py --source configs\jellyfish-plonk-credential-pilot.json --output .local\final-configs\jellyfish-plonk-credential-final-v1
+```
+
 Linux adapter campaigns must run with the Python runner inside WSL so
 `linux-procfs` measures the adapter itself:
 
