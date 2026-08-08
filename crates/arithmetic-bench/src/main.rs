@@ -3,7 +3,8 @@ use ark_bn254::Bn254;
 use ark_ec::{AffineRepr, CurveGroup, Pairing, VariableBaseMSM};
 use ark_ed_on_bls12_381::{EdwardsProjective as JubjubProjective, Fr as JubjubFr};
 use ark_ed_on_bn254::{EdwardsProjective as BabyJubjubProjective, Fr as BabyJubjubFr};
-use ark_ff::{Field, UniformRand};
+use ark_ff::{FftField, Field, UniformRand};
+use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_std::rand::{SeedableRng, rngs::StdRng};
 use std::env;
 use std::hint::black_box;
@@ -121,6 +122,37 @@ fn msm_benchmark<G: CurveGroup>(
     Ok(())
 }
 
+fn ntt_benchmark<F: FftField + UniformRand>(
+    writer: &mut CsvWriter<impl Write>,
+    curve: &str,
+    repetitions: usize,
+    seed: u64,
+) -> io::Result<()> {
+    for &size in SIZES {
+        let Some(domain) = Radix2EvaluationDomain::<F>::new(size) else {
+            continue;
+        };
+        for repetition in 0..repetitions {
+            let mut rng = StdRng::seed_from_u64(
+                seed ^ 0x4e54_5400 ^ (curve.len() as u64) ^ size as u64 ^ repetition as u64,
+            );
+            let mut coefficients = (0..size).map(|_| F::rand(&mut rng)).collect::<Vec<_>>();
+            let start = Instant::now();
+            domain.fft_in_place(&mut coefficients);
+            black_box(&coefficients);
+            writer.row(
+                curve,
+                "ntt",
+                size,
+                repetition,
+                start.elapsed().as_nanos(),
+                size * size.ilog2() as usize,
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn pairing_benchmark<P: Pairing>(
     writer: &mut CsvWriter<impl Write>,
     curve: &str,
@@ -211,6 +243,11 @@ fn main() -> io::Result<()> {
     field_benchmark::<ark_bls12_381::Fr>(&mut writer, "BLS12-381", repetitions, seed)?;
     field_benchmark::<JubjubFr>(&mut writer, "Jubjub-BLS12-381", repetitions, seed)?;
     field_benchmark::<BabyJubjubFr>(&mut writer, "BabyJubjub-BN254", repetitions, seed)?;
+
+    ntt_benchmark::<ark_bn254::Fr>(&mut writer, "BN254", repetitions, seed)?;
+    ntt_benchmark::<ark_bls12_381::Fr>(&mut writer, "BLS12-381", repetitions, seed)?;
+    ntt_benchmark::<JubjubFr>(&mut writer, "Jubjub-BLS12-381", repetitions, seed)?;
+    ntt_benchmark::<BabyJubjubFr>(&mut writer, "BabyJubjub-BN254", repetitions, seed)?;
 
     msm_benchmark::<ark_bn254::G1Projective>(&mut writer, "BN254-G1", repetitions, seed)?;
     msm_benchmark::<ark_bls12_381::G1Projective>(&mut writer, "BLS12-381-G1", repetitions, seed)?;

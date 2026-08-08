@@ -154,8 +154,8 @@ protocol. It measures primitive operations that can be compared across proof
 families without pretending that a circuit constraint is the same as a field
 operation. Raw rows contain the curve, operation, geometric size, repetition,
 elapsed nanoseconds, and operation count. The runner currently covers field
-addition/multiplication/inversion, variable-base MSM, and multi-pairing where
-the curve provides a pairing implementation. It uses deterministic seeds and
+addition/multiplication/inversion, radix-2 NTT/FFT, variable-base MSM, and
+multi-pairing where the curve provides a pairing implementation. It uses deterministic seeds and
 at least two repetitions by construction; the paper protocol will use ten or
 more repetitions per cell.
 
