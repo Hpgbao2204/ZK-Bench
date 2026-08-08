@@ -9,9 +9,9 @@ reported.
 
 The common runner currently records phase events, cold process latency, CPU
 time, peak RSS, page faults, proof size, invalid-proof rejection, native
-relation size, configuration hashes, binary hashes, dependency-lock hashes,
-and environment metadata. Unsupported counters are left unavailable rather
-than encoded as numeric zero.
+relation size, application throughput, native-overhead ratio, configuration
+hashes, binary hashes, dependency-lock hashes, and environment metadata.
+Unsupported counters are left unavailable rather than encoded as numeric zero.
 
 | Component | Implementation status | Evidence status |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ than encoded as numeric zero.
 | Arkworks Groth16 on BN254 | Controlled and application relations implemented | Controlled pilot validated |
 | Jellyfish TurboPlonk 0.8.0 with KZG on BN254 | Controlled relation implemented | Controlled pilot validated |
 | Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Pilot configs exist; not yet measured |
-| PLONK application relations | Implemented and unit-tested | No application evidence yet |
+| PLONK application relations | Implemented and unit-tested | Three local pilot bundles validated; not final evidence |
 | Transparent/STARK adapter | Not yet implemented | No evidence |
 | Bulletproofs range-proof baseline | Not yet implemented | No evidence |
 | On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
@@ -36,6 +36,11 @@ distinct (`r1cs_constraints` and `plonk_domain_rows`); they must not be merged
 onto a generic constraint axis. The implementations also use different
 Arkworks versions, so results are implementation-stack evidence unless a
 stronger controlled claim is justified explicitly.
+
+The application pilots are kept under `.local/reproductions/` while the final
+repetition protocol is being frozen. `scripts/check_cross_adapter.py` verifies
+shared credential, batched-state, and private-swap fixtures across Groth16 and
+PLONK before matched campaigns are promoted.
 
 ## Reproduce the current checks
 
@@ -69,6 +74,12 @@ python scripts\validate_results.py results\controlled-groth16-pilot-v1
 python scripts\validate_results.py results\controlled-plonk-pilot-v1
 ```
 
+Check application semantics inside WSL after building the adapters:
+
+```powershell
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && python3 scripts/check_cross_adapter.py --groth-command .local/wsl-cargo-target/release/zkbench-ark-groth16 --plonk-command .local/wsl-cargo-target/release/zkbench-jellyfish-plonk'
+```
+
 Linux adapter campaigns must run with the Python runner inside WSL so
 `linux-procfs` measures the adapter itself:
 
@@ -95,14 +106,12 @@ python scripts\release_guard.py --repo . --staged
 
 ## Next milestones
 
-1. Audit the matched Groth16 and PLONK pilots and freeze the final repetition,
-   scale, thread, and outlier protocol.
-2. Add cross-adapter fixture checks, then run matched Groth16/PLONK
-   application pilots with recorded negative cases.
-3. Add a pinned transparent-proof adapter and a specialized Bulletproofs
+1. Promote pilot configs to final candidates with at least ten repetitions and
+   validate the matched Groth16/PLONK application bundles.
+2. Add a pinned transparent-proof adapter and a specialized Bulletproofs
    range-proof baseline.
-4. Run application pilots, sensitivity studies, and final campaigns.
-5. Generate contribution-driven figures and exact tables from frozen evidence.
-6. Rewrite the marked and clean manuscripts only after the evidence freeze.
+3. Run application pilots, sensitivity studies, and final campaigns.
+4. Generate contribution-driven figures and exact tables from frozen evidence.
+5. Rewrite the marked and clean manuscripts only after the evidence freeze.
 
 No current pilot result is a final paper claim.
