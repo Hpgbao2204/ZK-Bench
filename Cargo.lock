@@ -133,6 +133,7 @@ dependencies = [
  "num-bigint",
  "rayon",
  "sha2",
+ "tracing",
 ]
 
 [[package]]
@@ -2067,10 +2068,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "zkbench-arithmetic-bench"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-381",
+ "ark-bn254 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ed-on-bls12-381",
+ "ark-ed-on-bn254",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
 name = "zkbench-ark-groth16"
 version = "0.1.0"
 dependencies = [
  "ark-bn254 0.6.0",
+ "ark-crypto-primitives 0.6.0",
  "ark-ff 0.6.0",
  "ark-groth16",
  "ark-r1cs-std 0.6.0",

@@ -22,7 +22,7 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | PLONK application relations | Implemented and unit-tested | Final-candidate bundles published; paper claim freeze pending |
 | Transparent/STARK adapter | Planned next (Winterfell/Stwo selection pending) | No evidence |
 | Bulletproofs range-proof baseline | Implemented as a specialized Ristretto range adapter | Pilot config added; no measured evidence yet |
-| Arithmetic backend across curve families | Planned | No evidence |
+| Arithmetic backend across curve families | Implemented as a standalone raw runner | Build/pilot pending; no paper evidence yet |
 | Common exponentiation/SHA-256 circuit backend | Planned | No evidence |
 | On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
 
@@ -133,8 +133,8 @@ python scripts\release_guard.py --repo . --staged
 2. Build the Bulletproofs range pilot from
    \`configs/bulletproofs-range-pilot.json\` after the local dependency/build
    permission is confirmed.
-3. Add a pinned transparent-proof adapter plus the arithmetic and common-circuit
-   backends inspired by the 2023 zk-Bench architecture.
+3. Add a pinned transparent-proof adapter and common exponentiation/SHA-256
+   circuit vectors inspired by the 2023 zk-Bench architecture.
 4. Run additional final campaigns only after every adapter passes correctness
    and semantic-scope gates.
 5. Replace the exploratory dot panels with contribution-driven heatmaps,
@@ -144,3 +144,27 @@ python scripts\release_guard.py --repo . --staged
    evidence freeze.
 
 No current pilot result is a final paper claim.
+
+## Arithmetic backend (new evidence track)
+
+The arithmetic runner is deliberately independent of the application adapter
+protocol. It measures primitive operations that can be compared across proof
+families without pretending that a circuit constraint is the same as a field
+operation. Raw rows contain the curve, operation, geometric size, repetition,
+elapsed nanoseconds, and operation count. The runner currently covers field
+addition/multiplication/inversion, variable-base MSM, and multi-pairing where
+the curve provides a pairing implementation. It uses deterministic seeds and
+at least two repetitions by construction; the paper protocol will use ten or
+more repetitions per cell.
+
+Build and run it inside the repository-local WSL toolchain:
+
+```powershell
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && ./scripts/wsl_cargo.sh build --release -p zkbench-arithmetic-bench'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --output .local/arithmetic/raw.csv'
+python scripts\summarize_arithmetic.py .local\arithmetic\raw.csv --output .local\arithmetic\summary.csv
+```
+
+The summary is a reproducibility artifact, not a claim by itself. Exact
+normalized boundaries are left blank, and unsupported operations are absent
+rather than encoded as zero.

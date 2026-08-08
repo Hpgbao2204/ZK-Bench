@@ -3,6 +3,7 @@ members = [
     "adapters/ark-groth16",
     "adapters/bulletproofs-range",
     "adapters/jellyfish-plonk",
+    "crates/arithmetic-bench",
     "crates/adapter-sdk",
 ]
 resolver = "2"
@@ -13,6 +14,7 @@ license = "MIT"
 version = "0.1.0"
 
 [workspace.dependencies]
+ark-crypto-primitives = { version = "0.6.0", features = ["constraints", "crh"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 ark-bn254 = "0.6.0"
