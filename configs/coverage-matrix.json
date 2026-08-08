@@ -21,6 +21,15 @@
       "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
     },
     {
+      "adapter": "ark-groth16-0.5.0-bls12-377",
+      "family": "pairing_snark",
+      "curve_or_field": "BLS12-377",
+      "workloads": ["controlled_kernel"],
+      "status": "pilot_pending",
+      "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
+      "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
+    },
+    {
       "adapter": "jellyfish-plonk-0.8.0-bn254",
       "family": "kzg_snark",
       "curve_or_field": "BN254",

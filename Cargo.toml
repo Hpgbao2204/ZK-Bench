@@ -2,6 +2,7 @@
 members = [
     "adapters/ark-groth16",
     "adapters/ark-groth16-bls12-381",
+    "adapters/ark-groth16-bls12-377",
     "adapters/bulletproofs-range",
     "adapters/jellyfish-plonk",
     "crates/arithmetic-bench",
