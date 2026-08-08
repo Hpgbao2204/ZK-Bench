@@ -185,6 +185,7 @@ Merge the raw files before summarizing speedup and efficiency:
 ```powershell
 python scripts\merge_arithmetic.py .local\arithmetic\raw-serial.csv .local\arithmetic\raw-parallel-2.csv .local\arithmetic\raw-parallel-4.csv .local\arithmetic\raw-parallel-8.csv --output .local\arithmetic\raw-all.csv
 python scripts\summarize_arithmetic.py .local\arithmetic\raw-all.csv --output .local\arithmetic\summary-all.csv
+python scripts\summarize_parallelism.py .local\arithmetic\summary-all.csv --output .local\arithmetic\parallelism.csv
 ```
 
 The summary is a reproducibility artifact, not a claim by itself. Exact
