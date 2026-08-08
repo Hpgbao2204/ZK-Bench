@@ -70,8 +70,8 @@ def summarize(source: Path, destination: Path) -> int:
                 operations = int(row["operations"])
             except (KeyError, TypeError, ValueError) as error:
                 raise ValueError(f"invalid row {row_number}: {error}") from error
-            if repetition < 0 or elapsed_ns <= 0 or operations <= 0:
-                raise ValueError(f"non-positive measurement at row {row_number}")
+            if repetition < 0 or elapsed_ns <= 1 or operations <= 0:
+                raise ValueError(f"boundary/non-positive measurement at row {row_number}")
             groups.setdefault(key, []).append((elapsed_ns, operations))
 
     destination.parent.mkdir(parents=True, exist_ok=True)
