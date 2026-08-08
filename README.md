@@ -153,7 +153,7 @@ The arithmetic runner is deliberately independent of the application adapter
 protocol. It measures primitive operations that can be compared across proof
 families without pretending that a circuit constraint is the same as a field
 operation. Raw rows contain the curve, operation, geometric size, repetition,
-elapsed nanoseconds, and operation count. The runner currently covers field
+thread count, execution mode, elapsed nanoseconds, and operation count. The runner currently covers field
 addition/multiplication/inversion, radix-2 NTT/FFT, variable-base MSM, and
 multi-pairing where the curve provides a pairing implementation. The current curve set includes
 BN254, BLS12-377, BLS12-381, BW6-761, Jubjub, and BabyJubjub. It uses deterministic seeds and
@@ -166,6 +166,18 @@ Build and run it inside the repository-local WSL toolchain:
 wsl bash -lc 'cd /mnt/d/ZK\ Bench && ./scripts/wsl_cargo.sh build --release -p zkbench-arithmetic-bench'
 wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --output .local/arithmetic/raw.csv'
 python scripts\summarize_arithmetic.py .local\arithmetic\raw.csv --output .local\arithmetic\summary.csv
+```
+
+For the parallelism study, run the same binary with a fixed thread count and
+the `--parallel` flag. Each raw row records `threads` and `execution_mode`;
+serial and parallel modes use the same eight independent lanes, so speedup and
+efficiency are computed from matched work rather than from a synthetic scale
+factor:
+
+```powershell
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --threads 1 --output .local/arithmetic/raw-serial.csv'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --threads 2 --parallel --output .local/arithmetic/raw-parallel-2.csv'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --threads 4 --parallel --output .local/arithmetic/raw-parallel-4.csv'
 ```
 
 The summary is a reproducibility artifact, not a claim by itself. Exact

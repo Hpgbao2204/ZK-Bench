@@ -58,6 +58,8 @@
       "Jubjub-BLS12-381",
       "BabyJubjub-BN254"
     ],
-    "operations": ["field_add", "field_mul", "field_inv", "ntt", "msm", "multi_pairing"]
+    "operations": ["field_add", "field_mul", "field_inv", "ntt", "msm", "multi_pairing"],
+    "parallel_modes": ["serial", "parallel"],
+    "matched_batch_lanes": 8
   }
 }

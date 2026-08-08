@@ -34,6 +34,8 @@ class ArithmeticSummaryTests(unittest.TestCase):
             with output.open(newline="", encoding="utf-8") as handle:
                 row = next(csv.DictReader(handle))
             self.assertEqual(row["repetitions"], "3")
+            self.assertEqual(row["threads"], "1")
+            self.assertEqual(row["execution_mode"], "serial")
             self.assertEqual(row["elapsed_ns_p50"], "200.000000")
             self.assertGreater(float(row["throughput_ops_per_s_p50"]), 1.0)
 
@@ -49,6 +51,27 @@ class ArithmeticSummaryTests(unittest.TestCase):
             )
             with self.assertRaises(ValueError):
                 MODULE.summarize(source, output)
+
+    def test_summary_keeps_parallelism_dimensions_separate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "raw.csv"
+            output = root / "summary.csv"
+            source.write_text(
+                "curve,operation,size,repetition,threads,execution_mode,elapsed_ns,operations\n"
+                "BN254,msm,8,0,1,serial,100,64\n"
+                "BN254,msm,8,1,1,serial,120,64\n"
+                "BN254,msm,8,0,4,parallel,40,64\n"
+                "BN254,msm,8,1,4,parallel,50,64\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(MODULE.summarize(source, output), 2)
+            with output.open(newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(
+                {(row["threads"], row["execution_mode"]) for row in rows},
+                {("1", "serial"), ("4", "parallel")},
+            )
 
 
 if __name__ == "__main__":

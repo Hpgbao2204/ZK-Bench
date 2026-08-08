@@ -61,10 +61,14 @@ def summarize(source: Path, destination: Path) -> int:
         if missing:
             raise ValueError(f"missing columns: {', '.join(sorted(missing))}")
 
-        groups: dict[tuple[str, str, int], list[tuple[int, int]]] = {}
+        groups: dict[tuple[str, str, int, int, str], list[tuple[int, int]]] = {}
         for row_number, row in enumerate(reader, start=2):
             try:
-                key = (row["curve"], row["operation"], int(row["size"]))
+                threads = int(row.get("threads", "1"))
+                mode = row.get("execution_mode", "serial")
+                if threads <= 0 or mode not in {"serial", "parallel"}:
+                    raise ValueError(f"invalid execution metadata at row {row_number}")
+                key = (row["curve"], row["operation"], int(row["size"]), threads, mode)
                 repetition = int(row["repetition"])
                 elapsed_ns = int(row["elapsed_ns"])
                 operations = int(row["operations"])
@@ -79,6 +83,8 @@ def summarize(source: Path, destination: Path) -> int:
         "curve",
         "operation",
         "size",
+        "threads",
+        "execution_mode",
         "repetitions",
         "elapsed_ns_p50",
         "elapsed_ns_p95",
@@ -90,7 +96,7 @@ def summarize(source: Path, destination: Path) -> int:
     with destination.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
-        for (curve, operation, size), rows in sorted(groups.items()):
+        for (curve, operation, size, threads, mode), rows in sorted(groups.items()):
             elapsed = [float(item[0]) for item in rows]
             operations = rows[0][1]
             mean = statistics.fmean(elapsed)
@@ -104,6 +110,8 @@ def summarize(source: Path, destination: Path) -> int:
                     "curve": curve,
                     "operation": operation,
                     "size": size,
+                    "threads": threads,
+                    "execution_mode": mode,
                     "repetitions": len(rows),
                     "elapsed_ns_p50": f"{p50:.6f}",
                     "elapsed_ns_p95": f"{p95:.6f}",
