@@ -19,9 +19,11 @@ from typing import Any, Callable, Iterable
 from .adapter_protocol import AdapterRequest, PhaseEvent
 from .adapter_runner import AdapterExecution, execute_adapter
 from .analysis import (
+    application_throughput,
     bootstrap_power_law_exponent_interval,
     bootstrap_speedup_interval,
     fit_power_law,
+    native_overhead,
     parallel_profile,
 )
 from .runner import RAW_FIELDS, canonical_hash, percentile
@@ -63,6 +65,10 @@ SUMMARY_FIELDS = [
     "speedup_ci_low",
     "speedup_ci_high",
     "parallel_efficiency",
+    "application_throughput_units_s",
+    "native_overhead_ratio",
+    "cpu_wall_ratio",
+    "ram_per_application_unit_mb",
     "saturation_threads",
     "scaling_coefficient_a",
     "scaling_exponent_b",
@@ -630,6 +636,11 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                         16,
                     ),
                 )
+    phase_medians: dict[tuple[str, str, str, int, int, str], float] = {}
+    for key, group in groups.items():
+        values = _nonboundary_values(group, "latency_ms")
+        if values:
+            phase_medians[key] = statistics.median(values)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=SUMMARY_FIELDS)
         writer.writeheader()
@@ -742,6 +753,40 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
             )
             if derived_unavailable_reason:
                 reasons.append(derived_unavailable_reason)
+            throughput = None
+            overhead = None
+            cpu_wall = None
+            ram_per_unit = None
+            if phase == "prove_total" and not invalid_kind and latencies:
+                try:
+                    throughput = application_throughput(
+                        int(scale), statistics.median(latencies)
+                    )
+                except ValueError as error:
+                    reasons.append(f"throughput unavailable: {error}")
+                native_latency = phase_medians.get(
+                    (
+                        parameter_set,
+                        parameters_json,
+                        "native_execution",
+                        int(scale),
+                        int(threads),
+                        invalid_kind,
+                    )
+                )
+                if native_latency is not None:
+                    try:
+                        overhead = native_overhead(
+                            statistics.median(latencies), native_latency
+                        )
+                    except ValueError as error:
+                        reasons.append(f"native overhead unavailable: {error}")
+            if phase == "adapter_process_wall" and latencies:
+                process_median = statistics.median(latencies)
+                if cpu_values:
+                    cpu_wall = statistics.median(cpu_values) / process_median
+                if rss_values:
+                    ram_per_unit = statistics.median(rss_values) / int(scale)
             writer.writerow(
                 {
                     "claim_id": group[0]["claim_id"],
@@ -832,6 +877,16 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                     ),
                     "parallel_efficiency": metric(
                         "parallel_efficiency", efficiency
+                    ),
+                    "application_throughput_units_s": metric(
+                        "application_throughput_units_s", throughput
+                    ),
+                    "native_overhead_ratio": metric(
+                        "native_overhead_ratio", overhead
+                    ),
+                    "cpu_wall_ratio": metric("cpu_wall_ratio", cpu_wall),
+                    "ram_per_application_unit_mb": metric(
+                        "ram_per_application_unit_mb", ram_per_unit
                     ),
                     "saturation_threads": saturation or "",
                     "scaling_coefficient_a": metric(
