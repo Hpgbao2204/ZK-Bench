@@ -19,7 +19,7 @@ than encoded as numeric zero.
 | Arkworks Groth16 on BN254 | Controlled and application relations implemented | Controlled pilot validated |
 | Jellyfish TurboPlonk 0.8.0 with KZG on BN254 | Controlled relation implemented | Controlled pilot validated |
 | Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Pilot configs exist; not yet measured |
-| PLONK application relations | Not yet implemented | No application evidence |
+| PLONK application relations | Implemented and unit-tested | No application evidence yet |
 | Transparent/STARK adapter | Not yet implemented | No evidence |
 | Bulletproofs range-proof baseline | Not yet implemented | No evidence |
 | On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
@@ -97,8 +97,8 @@ python scripts\release_guard.py --repo . --staged
 
 1. Audit the matched Groth16 and PLONK pilots and freeze the final repetition,
    scale, thread, and outlier protocol.
-2. Implement the credential, batched-state, and private-swap semantics in the
-   PLONK adapter with cross-adapter fixtures and negative tests.
+2. Add cross-adapter fixture checks, then run matched Groth16/PLONK
+   application pilots with recorded negative cases.
 3. Add a pinned transparent-proof adapter and a specialized Bulletproofs
    range-proof baseline.
 4. Run application pilots, sensitivity studies, and final campaigns.
