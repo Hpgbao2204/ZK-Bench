@@ -1,0 +1,13 @@
+[package]
+name = "zkbench-bulletproofs-range"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bulletproofs = "5.0.0"
+curve25519-dalek = { version = "4.1.1", features = ["rand_core"] }
+merlin = "3"
+rand_chacha = "0.3.1"
+rand_core = "0.6.4"
+zkbench-adapter-sdk = { path = "../../crates/adapter-sdk" }

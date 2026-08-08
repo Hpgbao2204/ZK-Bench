@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "adapters/ark-groth16",
+    "adapters/bulletproofs-range",
     "adapters/jellyfish-plonk",
     "crates/adapter-sdk",
 ]

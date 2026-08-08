@@ -1,0 +1,58 @@
+{
+  "adapter": "bulletproofs-5.0.0-ristretto",
+  "campaign_kind": "adapter-process",
+  "claim_id": "C4-BULLETPROOFS-SPECIALIZED",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-bulletproofs-range"
+  ],
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "evidence_class": "measured",
+  "experiment_id": "bulletproofs-range-pilot-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "parameter_set_ids": [
+        "range32-aggregate"
+      ],
+      "repetitions": 3,
+      "scales": [2, 4, 8],
+      "threads": [1, 2, 4]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 1,
+  "parallel_backend": "single-process range-proof API; thread setting recorded for protocol compatibility",
+  "parameter_sets": [
+    {
+      "id": "range32-aggregate",
+      "parameters": {
+        "range_bits": 32
+      }
+    }
+  ],
+  "relation": {
+    "application_unit": "private-swap range component",
+    "hash_gadget": "not applicable",
+    "private_inputs": [
+      "two committed amounts per swap unit"
+    ],
+    "public_inputs": [
+      "Pedersen commitments to the amounts"
+    ],
+    "security_scope": "specialized aggregated range-proof baseline; not a general private-swap circuit"
+  },
+  "repetitions": 3,
+  "require_clean_git": true,
+  "result_scope": "specialized Bulletproofs range baseline; validate bundle before paper reporting",
+  "sampling_interval_ms": 5,
+  "scales": [2, 4, 8],
+  "schema_version": "1.0",
+  "seed": 20260808,
+  "threads": [1, 2, 4],
+  "timeout_seconds": 600,
+  "variant": "bulletproofs-5.0.0-ristretto",
+  "workload": "private_swap"
+}
