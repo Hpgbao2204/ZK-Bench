@@ -1,0 +1,10 @@
+[package]
+name = "zkbench-winterfell-stark"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rayon.workspace = true
+winterfell = { version = "0.13.1", features = ["concurrent"] }
+zkbench-adapter-sdk = { path = "../../crates/adapter-sdk" }

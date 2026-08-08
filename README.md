@@ -20,7 +20,7 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | Jellyfish TurboPlonk 0.8.0 with KZG on BN254 | Controlled relation implemented | Controlled pilot validated |
 | Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Final-candidate bundles published; paper claim freeze pending |
 | PLONK application relations | Implemented and unit-tested | Final-candidate bundles published; paper claim freeze pending |
-| Transparent/STARK adapter | Planned next (Winterfell/Stwo selection pending) | No evidence |
+| Transparent/STARK adapter | Implemented as a Winterfell F128 exponentiation adapter | Build/pilot pending; no paper evidence yet |
 | Bulletproofs range-proof baseline | Implemented as a specialized Ristretto range adapter | Pilot config added; no measured evidence yet |
 | Arithmetic backend across curve families | Implemented as a standalone raw runner | Build/pilot pending; no paper evidence yet |
 | Common exponentiation/SHA-256 circuit backend | Planned | No evidence |
@@ -133,8 +133,9 @@ python scripts\release_guard.py --repo . --staged
 2. Build the Bulletproofs range pilot from
    \`configs/bulletproofs-range-pilot.json\` after the local dependency/build
    permission is confirmed.
-3. Add a pinned transparent-proof adapter and common exponentiation/SHA-256
-   circuit vectors inspired by the 2023 zk-Bench architecture.
+3. Build the Winterfell transparent pilot from
+   \`configs/winterfell-stark-pilot.json\`, then run matched exponentiation
+   vectors against Groth16 and PLONK.
 4. Run additional final campaigns only after every adapter passes correctness
    and semantic-scope gates.
 5. Replace the exploratory dot panels with contribution-driven heatmaps,
@@ -168,3 +169,13 @@ python scripts\summarize_arithmetic.py .local\arithmetic\raw.csv --output .local
 The summary is a reproducibility artifact, not a claim by itself. Exact
 normalized boundaries are left blank, and unsupported operations are absent
 rather than encoded as zero.
+
+## Transparent STARK backend
+
+`adapters/winterfell-stark` implements the same chained exponentiation
+relation as the controlled SNARK pilots over Winterfell's F128 field. It
+records trace construction, proof generation, serialization, verification,
+and explicit unsupported setup/KZG/MSM phases. The adapter uses a transparent
+trace/AIR proof and therefore does not report a trusted-setup time as zero.
+The actual claims remain frozen until the user-run release build and pilot
+validator pass.

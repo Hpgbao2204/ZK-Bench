@@ -5,6 +5,7 @@ members = [
     "adapters/jellyfish-plonk",
     "crates/arithmetic-bench",
     "crates/adapter-sdk",
+    "adapters/winterfell-stark",
 ]
 resolver = "2"
 

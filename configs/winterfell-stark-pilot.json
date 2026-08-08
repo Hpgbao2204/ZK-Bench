@@ -1,0 +1,65 @@
+{
+  "adapter": "winterfell-0.13.1-f128",
+  "campaign_kind": "adapter-process",
+  "claim_id": "C7-TRANSPARENT-STARK",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-winterfell-stark"
+  ],
+  "evidence_class": "measured",
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "experiment_id": "winterfell-stark-pilot-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "repetitions": 3,
+      "scales": [
+        16,
+        64,
+        256
+      ],
+      "threads": [
+        1,
+        4
+      ]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 2,
+  "parallel_backend": "Winterfell concurrent backend through repository-local Rayon pool",
+  "relation": {
+    "air": "x_next = x^3 + 42",
+    "field": "F128",
+    "private_inputs": [
+      "execution trace"
+    ],
+    "public_inputs": [
+      "start field element",
+      "result field element"
+    ],
+    "security_scope": "Winterfell transparent STARK implementation evidence; no generic STARK claim",
+    "setup": "transparent; no trusted setup"
+  },
+  "repetitions": 3,
+  "require_clean_git": true,
+  "result_scope": "Winterfell transparent STARK pilot; matched vector only",
+  "sampling_interval_ms": 5,
+  "scales": [
+    16,
+    64,
+    256,
+    1024
+  ],
+  "schema_version": "1.0",
+  "seed": 20260808,
+  "threads": [
+    1,
+    2,
+    4
+  ],
+  "timeout_seconds": 900,
+  "variant": "winterfell-0.13.1-f128",
+  "workload": "controlled_kernel"
+}
