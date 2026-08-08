@@ -335,25 +335,123 @@ fn main() -> io::Result<()> {
     writer.header()?;
 
     field_benchmark::<ark_bn254::Fr>(&mut writer, "BN254", repetitions, seed, &pool, parallel)?;
-    field_benchmark::<ark_bls12_377::Fr>(&mut writer, "BLS12-377", repetitions, seed, &pool, parallel)?;
-    field_benchmark::<ark_bls12_381::Fr>(&mut writer, "BLS12-381", repetitions, seed, &pool, parallel)?;
+    field_benchmark::<ark_bls12_377::Fr>(
+        &mut writer,
+        "BLS12-377",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    field_benchmark::<ark_bls12_381::Fr>(
+        &mut writer,
+        "BLS12-381",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
     field_benchmark::<ark_bw6_761::Fr>(&mut writer, "BW6-761", repetitions, seed, &pool, parallel)?;
-    field_benchmark::<JubjubFr>(&mut writer, "Jubjub-BLS12-381", repetitions, seed, &pool, parallel)?;
-    field_benchmark::<BabyJubjubFr>(&mut writer, "BabyJubjub-BN254", repetitions, seed, &pool, parallel)?;
+    field_benchmark::<JubjubFr>(
+        &mut writer,
+        "Jubjub-BLS12-381",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    field_benchmark::<BabyJubjubFr>(
+        &mut writer,
+        "BabyJubjub-BN254",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
 
     ntt_benchmark::<ark_bn254::Fr>(&mut writer, "BN254", repetitions, seed, &pool, parallel)?;
-    ntt_benchmark::<ark_bls12_377::Fr>(&mut writer, "BLS12-377", repetitions, seed, &pool, parallel)?;
-    ntt_benchmark::<ark_bls12_381::Fr>(&mut writer, "BLS12-381", repetitions, seed, &pool, parallel)?;
+    ntt_benchmark::<ark_bls12_377::Fr>(
+        &mut writer,
+        "BLS12-377",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    ntt_benchmark::<ark_bls12_381::Fr>(
+        &mut writer,
+        "BLS12-381",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
     ntt_benchmark::<ark_bw6_761::Fr>(&mut writer, "BW6-761", repetitions, seed, &pool, parallel)?;
-    ntt_benchmark::<JubjubFr>(&mut writer, "Jubjub-BLS12-381", repetitions, seed, &pool, parallel)?;
-    ntt_benchmark::<BabyJubjubFr>(&mut writer, "BabyJubjub-BN254", repetitions, seed, &pool, parallel)?;
+    ntt_benchmark::<JubjubFr>(
+        &mut writer,
+        "Jubjub-BLS12-381",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    ntt_benchmark::<BabyJubjubFr>(
+        &mut writer,
+        "BabyJubjub-BN254",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
 
-    msm_benchmark::<ark_bn254::G1Projective>(&mut writer, "BN254-G1", repetitions, seed, &pool, parallel)?;
-    msm_benchmark::<ark_bls12_377::G1Projective>(&mut writer, "BLS12-377-G1", repetitions, seed, &pool, parallel)?;
-    msm_benchmark::<ark_bls12_381::G1Projective>(&mut writer, "BLS12-381-G1", repetitions, seed, &pool, parallel)?;
-    msm_benchmark::<ark_bw6_761::G1Projective>(&mut writer, "BW6-761-G1", repetitions, seed, &pool, parallel)?;
-    msm_benchmark::<JubjubProjective>(&mut writer, "Jubjub-BLS12-381", repetitions, seed, &pool, parallel)?;
-    msm_benchmark::<BabyJubjubProjective>(&mut writer, "BabyJubjub-BN254", repetitions, seed, &pool, parallel)?;
+    msm_benchmark::<ark_bn254::G1Projective>(
+        &mut writer,
+        "BN254-G1",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    msm_benchmark::<ark_bls12_377::G1Projective>(
+        &mut writer,
+        "BLS12-377-G1",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    msm_benchmark::<ark_bls12_381::G1Projective>(
+        &mut writer,
+        "BLS12-381-G1",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    msm_benchmark::<ark_bw6_761::G1Projective>(
+        &mut writer,
+        "BW6-761-G1",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    msm_benchmark::<JubjubProjective>(
+        &mut writer,
+        "Jubjub-BLS12-381",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
+    msm_benchmark::<BabyJubjubProjective>(
+        &mut writer,
+        "BabyJubjub-BN254",
+        repetitions,
+        seed,
+        &pool,
+        parallel,
+    )?;
 
     pairing_benchmark::<Bn254>(&mut writer, "BN254", repetitions, seed, &pool, parallel)?;
     pairing_benchmark::<Bls12_377>(&mut writer, "BLS12-377", repetitions, seed, &pool, parallel)?;
