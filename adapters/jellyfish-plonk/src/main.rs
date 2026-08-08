@@ -305,6 +305,9 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
         verify_core_elapsed,
         BTreeMap::new(),
     )?;
+    if request.invalid_case.is_some() {
+        measured_duration(request, "invalid_reject", verify_core_elapsed, BTreeMap::new())?;
+    }
     measured_duration(
         request,
         "verify_total",

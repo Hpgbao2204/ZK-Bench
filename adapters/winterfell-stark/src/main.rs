@@ -346,12 +346,23 @@ fn real_main() -> Result<(), Box<dyn Error>> {
         &winterfell::AcceptableOptions::MinConjecturedSecurity(95),
     )
     .is_ok();
-    measured(
+    let verify_elapsed = verify_total_timer.elapsed();
+    emit(&PhaseEvent::measured(
         &request,
+        ADAPTER,
         "verify_total",
-        verify_total_timer,
+        verify_elapsed,
         BTreeMap::from([("trace_rows".to_owned(), steps as f64)]),
-    )?;
+    )?)?;
+    if request.invalid_case.is_some() {
+        emit(&PhaseEvent::measured(
+            &request,
+            ADAPTER,
+            "invalid_reject",
+            verify_elapsed,
+            BTreeMap::from([("trace_rows".to_owned(), steps as f64)]),
+        )?)?;
+    }
     emit_result(&AdapterResult {
         schema_version: SCHEMA_VERSION,
         event_type: "result",

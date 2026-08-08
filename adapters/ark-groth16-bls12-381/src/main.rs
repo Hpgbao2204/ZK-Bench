@@ -207,13 +207,23 @@ fn run(request: &AdapterRequest) -> Result<(bool, usize, usize, usize), Box<dyn 
     let verify_core_timer = PhaseTimer::start();
     let verify_ok =
         Groth16::<Bls12_381>::verify_proof(&processed_vk, &decoded_proof, &public_inputs)?;
+    let verify_core_elapsed = verify_core_timer.elapsed();
     emit(&PhaseEvent::measured(
         request,
         ADAPTER,
         "verify_core",
-        verify_core_timer.elapsed(),
+        verify_core_elapsed,
         BTreeMap::new(),
     )?)?;
+    if request.invalid_case.is_some() {
+        emit(&PhaseEvent::measured(
+            request,
+            ADAPTER,
+            "invalid_reject",
+            verify_core_elapsed,
+            BTreeMap::new(),
+        )?)?;
+    }
     emit(&PhaseEvent::measured(
         request,
         ADAPTER,
