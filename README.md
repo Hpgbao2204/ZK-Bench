@@ -17,6 +17,7 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | --- | --- | --- |
 | Common JSON adapter protocol and campaign runner | Implemented and tested | Used by both controlled pilots |
 | Arkworks Groth16 on BN254 | Controlled and application relations implemented | Controlled pilot validated |
+| Arkworks Groth16 on BLS12-381 | Controlled relation implemented for matched curve study | Pilot config added; no measured evidence yet |
 | Jellyfish TurboPlonk 0.8.0 with KZG on BN254 | Controlled relation implemented | Controlled pilot validated |
 | Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Final-candidate bundles published; paper claim freeze pending |
 | PLONK application relations | Implemented and unit-tested | Final-candidate bundles published; paper claim freeze pending |
