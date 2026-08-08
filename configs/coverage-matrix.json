@@ -50,7 +50,14 @@
   ],
   "arithmetic_backend": {
     "status": "pilot_pending",
-    "curves_or_fields": ["BN254", "BLS12-381", "Jubjub-BLS12-381", "BabyJubjub-BN254"],
+    "curves_or_fields": [
+      "BN254",
+      "BLS12-377",
+      "BLS12-381",
+      "BW6-761",
+      "Jubjub-BLS12-381",
+      "BabyJubjub-BN254"
+    ],
     "operations": ["field_add", "field_mul", "field_inv", "ntt", "msm", "multi_pairing"]
   }
 }

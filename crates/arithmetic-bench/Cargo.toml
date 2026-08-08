@@ -5,9 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+ark-bls12-377 = "0.5.0"
 ark-bls12-381 = "0.5.0"
 ark-bn254 = "0.5.0"
 ark-ec = "0.5.0"
+ark-bw6-761 = "0.5.0"
 ark-ed-on-bls12-381 = "0.5.0"
 ark-ed-on-bn254 = "0.5.0"
 ark-ff = "0.5.0"

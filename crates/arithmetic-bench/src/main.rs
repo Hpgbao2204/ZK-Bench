@@ -1,5 +1,7 @@
+use ark_bls12_377::Bls12_377;
 use ark_bls12_381::Bls12_381;
 use ark_bn254::Bn254;
+use ark_bw6_761::BW6_761;
 use ark_ec::{AffineRepr, CurveGroup, Pairing, VariableBaseMSM};
 use ark_ed_on_bls12_381::{EdwardsProjective as JubjubProjective, Fr as JubjubFr};
 use ark_ed_on_bn254::{EdwardsProjective as BabyJubjubProjective, Fr as BabyJubjubFr};
@@ -240,21 +242,29 @@ fn main() -> io::Result<()> {
     writer.header()?;
 
     field_benchmark::<ark_bn254::Fr>(&mut writer, "BN254", repetitions, seed)?;
+    field_benchmark::<ark_bls12_377::Fr>(&mut writer, "BLS12-377", repetitions, seed)?;
     field_benchmark::<ark_bls12_381::Fr>(&mut writer, "BLS12-381", repetitions, seed)?;
+    field_benchmark::<ark_bw6_761::Fr>(&mut writer, "BW6-761", repetitions, seed)?;
     field_benchmark::<JubjubFr>(&mut writer, "Jubjub-BLS12-381", repetitions, seed)?;
     field_benchmark::<BabyJubjubFr>(&mut writer, "BabyJubjub-BN254", repetitions, seed)?;
 
     ntt_benchmark::<ark_bn254::Fr>(&mut writer, "BN254", repetitions, seed)?;
+    ntt_benchmark::<ark_bls12_377::Fr>(&mut writer, "BLS12-377", repetitions, seed)?;
     ntt_benchmark::<ark_bls12_381::Fr>(&mut writer, "BLS12-381", repetitions, seed)?;
+    ntt_benchmark::<ark_bw6_761::Fr>(&mut writer, "BW6-761", repetitions, seed)?;
     ntt_benchmark::<JubjubFr>(&mut writer, "Jubjub-BLS12-381", repetitions, seed)?;
     ntt_benchmark::<BabyJubjubFr>(&mut writer, "BabyJubjub-BN254", repetitions, seed)?;
 
     msm_benchmark::<ark_bn254::G1Projective>(&mut writer, "BN254-G1", repetitions, seed)?;
+    msm_benchmark::<ark_bls12_377::G1Projective>(&mut writer, "BLS12-377-G1", repetitions, seed)?;
     msm_benchmark::<ark_bls12_381::G1Projective>(&mut writer, "BLS12-381-G1", repetitions, seed)?;
+    msm_benchmark::<ark_bw6_761::G1Projective>(&mut writer, "BW6-761-G1", repetitions, seed)?;
     msm_benchmark::<JubjubProjective>(&mut writer, "Jubjub-BLS12-381", repetitions, seed)?;
     msm_benchmark::<BabyJubjubProjective>(&mut writer, "BabyJubjub-BN254", repetitions, seed)?;
 
     pairing_benchmark::<Bn254>(&mut writer, "BN254", repetitions, seed)?;
+    pairing_benchmark::<Bls12_377>(&mut writer, "BLS12-377", repetitions, seed)?;
     pairing_benchmark::<Bls12_381>(&mut writer, "BLS12-381", repetitions, seed)?;
+    pairing_benchmark::<BW6_761>(&mut writer, "BW6-761", repetitions, seed)?;
     Ok(())
 }

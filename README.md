@@ -23,7 +23,7 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | PLONK application relations | Implemented and unit-tested | Final-candidate bundles published; paper claim freeze pending |
 | Transparent/STARK adapter | Implemented as a Winterfell F128 exponentiation adapter | Build/pilot pending; no paper evidence yet |
 | Bulletproofs range-proof baseline | Implemented as a specialized Ristretto range adapter | Pilot config added; no measured evidence yet |
-| Arithmetic backend across curve families | Implemented as a standalone raw runner | Build/pilot pending; no paper evidence yet |
+| Arithmetic backend across curve families | Implemented as a standalone raw runner over BN254, BLS12-377, BLS12-381, BW6-761, Jubjub, and BabyJubjub | Build/pilot pending; no paper evidence yet |
 | Common exponentiation/SHA-256 circuit backend | Planned | No evidence |
 | On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
 
@@ -155,7 +155,8 @@ families without pretending that a circuit constraint is the same as a field
 operation. Raw rows contain the curve, operation, geometric size, repetition,
 elapsed nanoseconds, and operation count. The runner currently covers field
 addition/multiplication/inversion, radix-2 NTT/FFT, variable-base MSM, and
-multi-pairing where the curve provides a pairing implementation. It uses deterministic seeds and
+multi-pairing where the curve provides a pairing implementation. The current curve set includes
+BN254, BLS12-377, BLS12-381, BW6-761, Jubjub, and BabyJubjub. It uses deterministic seeds and
 at least two repetitions by construction; the paper protocol will use ten or
 more repetitions per cell.
 
