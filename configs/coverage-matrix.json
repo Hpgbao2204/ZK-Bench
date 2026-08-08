@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "purpose": "executable coverage boundary for ZK-Bench claims",
+  "families": [
+    {
+      "adapter": "ark-groth16-0.6.0-bn254",
+      "family": "pairing_snark",
+      "curve_or_field": "BN254",
+      "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap", "sha256"],
+      "status": "measured_partial",
+      "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total"],
+      "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
+    },
+    {
+      "adapter": "ark-groth16-0.6.0-bls12-381",
+      "family": "pairing_snark",
+      "curve_or_field": "BLS12-381",
+      "workloads": ["controlled_kernel"],
+      "status": "pilot_pending",
+      "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total"],
+      "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
+    },
+    {
+      "adapter": "jellyfish-plonk-0.8.0-bn254",
+      "family": "kzg_snark",
+      "curve_or_field": "BN254",
+      "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap"],
+      "status": "measured_partial",
+      "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total"],
+      "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
+    },
+    {
+      "adapter": "bulletproofs-5.0.0-ristretto",
+      "family": "transparent_inner_product",
+      "curve_or_field": "Ristretto255",
+      "workloads": ["private_swap_range_component"],
+      "status": "pilot_pending",
+      "phase_metrics": ["native_execution", "witness", "prove_total", "serialize", "deserialize", "verify_core", "verify_total"],
+      "unsupported_phases": ["setup_or_preprocess", "fft_ntt", "msm", "commitment", "key_load"]
+    },
+    {
+      "adapter": "winterfell-0.13.1-f128",
+      "family": "transparent_stark",
+      "curve_or_field": "F128",
+      "workloads": ["controlled_kernel"],
+      "status": "pilot_pending",
+      "phase_metrics": ["native_execution", "witness", "prove_total", "serialize", "deserialize", "verify_total"],
+      "unsupported_phases": ["setup_or_preprocess", "key_load", "msm", "fft_ntt"]
+    }
+  ],
+  "arithmetic_backend": {
+    "status": "pilot_pending",
+    "curves_or_fields": ["BN254", "BLS12-381", "Jubjub-BLS12-381", "BabyJubjub-BN254"],
+    "operations": ["field_add", "field_mul", "field_inv", "ntt", "msm", "multi_pairing"]
+  }
+}
