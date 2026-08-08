@@ -7,7 +7,7 @@
       "family": "pairing_snark",
       "curve_or_field": "BN254",
       "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap", "sha256"],
-      "status": "measured_partial",
+      "status": "measured_partial_sha256_code",
       "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
       "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
     },

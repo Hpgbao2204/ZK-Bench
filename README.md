@@ -24,7 +24,7 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | Transparent/STARK adapter | Implemented as a Winterfell F128 exponentiation adapter | Build/pilot pending; no paper evidence yet |
 | Bulletproofs range-proof baseline | Implemented as a specialized Ristretto range adapter | Pilot config added; no measured evidence yet |
 | Arithmetic backend across curve families | Implemented as a standalone raw runner over BN254, BLS12-377, BLS12-381, BW6-761, Jubjub, and BabyJubjub | Build/pilot pending; no paper evidence yet |
-| Common exponentiation/SHA-256 circuit backend | Planned | No evidence |
+| Common exponentiation/SHA-256 circuit backend | Chained multiplication is shared across SNARK/STARK pilots; SHA-256 gadget implemented for Groth16 BN254 | SHA-256 pilot pending; no cross-family claim yet |
 | On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
 
 The two controlled bundles are deliberately labelled as pilots. They contain
