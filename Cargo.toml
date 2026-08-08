@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "adapters/ark-groth16",
+    "adapters/ark-groth16-bls12-381",
     "adapters/bulletproofs-range",
     "adapters/jellyfish-plonk",
     "crates/arithmetic-bench",
@@ -16,6 +17,7 @@ version = "0.1.0"
 
 [workspace.dependencies]
 ark-crypto-primitives = { version = "0.6.0", features = ["constraints", "crh"] }
+ark-bls12-381 = "0.6.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 ark-bn254 = "0.6.0"
