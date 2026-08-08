@@ -204,14 +204,21 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
 
     let native_timer = PhaseTimer::start();
     let plan = build_plan(request)?;
+    let mut native_metrics = BTreeMap::from([(
+        "application_units".to_owned(),
+        plan.native_units as f64,
+    )]);
+    if request.workload != CONTROLLED_WORKLOAD {
+        native_metrics.insert(
+            "relation_digest".to_owned(),
+            relations::relation_digest(request)?,
+        );
+    }
     measured_event(
         request,
         "native_execution",
         &native_timer,
-        BTreeMap::from([(
-            "application_units".to_owned(),
-            plan.native_units as f64,
-        )]),
+        native_metrics,
     )?;
 
     let witness_timer = PhaseTimer::start();

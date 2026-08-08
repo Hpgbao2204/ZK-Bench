@@ -1,5 +1,6 @@
 use ark_bn254_jf::Fr;
 use ark_ff_jf::Field;
+use ark_serialize_jf::CanonicalSerialize;
 use jf_relation::{BoolVar, Circuit, PlonkCircuit, Variable};
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -529,6 +530,42 @@ pub fn supports(workload: &str) -> bool {
     matches!(workload, CREDENTIAL | BATCHED_STATE | PRIVATE_SWAP)
 }
 
+fn relation_digest_bytes(
+    request: &AdapterRequest,
+    public_inputs: &[Fr],
+) -> Result<f64, Box<dyn Error>> {
+    let mut bytes = request.workload.as_bytes().to_vec();
+    for (name, value) in &request.parameters {
+        bytes.extend_from_slice(name.as_bytes());
+        bytes.extend_from_slice(value.to_string().as_bytes());
+    }
+    for input in public_inputs {
+        input.serialize_compressed(&mut bytes)?;
+    }
+    let mut digest = 14_695_981_039_346_656_037_u64;
+    for byte in bytes {
+        digest ^= u64::from(byte);
+        digest = digest.wrapping_mul(1_099_511_628_211_u64);
+    }
+    let safe = (digest & ((1_u64 << 52) - 1)).max(2);
+    Ok(safe as f64)
+}
+
+pub fn relation_digest(request: &AdapterRequest) -> Result<f64, Box<dyn Error>> {
+    if !supports(&request.workload) {
+        return Err(format!("unsupported application workload: {}", request.workload).into());
+    }
+    let scale = usize::try_from(request.scale)?;
+    let parameters = RelationParameters::from_request(request)?;
+    let public_inputs = match request.workload.as_str() {
+        CREDENTIAL => credential_public_inputs(request.seed, scale, &parameters),
+        BATCHED_STATE => state_public_inputs(request.seed, scale, &parameters),
+        PRIVATE_SWAP => swap_public_inputs(request.seed, scale, &parameters),
+        _ => unreachable!("workload checked by supports"),
+    };
+    relation_digest_bytes(request, &public_inputs)
+}
+
 pub fn native_execution(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
     if !supports(&request.workload) {
         return Err(format!("unsupported application workload: {}", request.workload).into());
@@ -643,6 +680,15 @@ mod tests {
             assert!(plan.public_inputs.len() > 1, "{workload}");
             assert!(plan.profile["hash_invocations"] > 1.0, "{workload}");
         }
+    }
+
+    #[test]
+    fn relation_digest_is_stable_for_shared_fixture() {
+        let value = request(CREDENTIAL);
+        assert_eq!(relation_digest(&value).unwrap(), relation_digest(&value).unwrap());
+        let mut changed = value.clone();
+        changed.seed += 2;
+        assert_ne!(relation_digest(&value).unwrap(), relation_digest(&changed).unwrap());
     }
 
     #[test]

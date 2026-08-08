@@ -4,6 +4,7 @@ use ark_r1cs_std::{fields::fp::FpVar, prelude::*};
 use ark_relations::gr1cs::{
     ConstraintSynthesizer, ConstraintSystemRef, SynthesisError,
 };
+use ark_serialize::CanonicalSerialize;
 use std::collections::BTreeMap;
 use zkbench_adapter_sdk::AdapterRequest;
 
@@ -155,6 +156,34 @@ pub fn build_plan(request: &AdapterRequest) -> Result<ApplicationPlan, String> {
         native_units: request.scale,
         profile,
     })
+}
+
+fn relation_digest_bytes(
+    request: &AdapterRequest,
+    public_inputs: &[Fr],
+) -> Result<f64, String> {
+    let mut bytes = request.workload.as_bytes().to_vec();
+    for (name, value) in &request.parameters {
+        bytes.extend_from_slice(name.as_bytes());
+        bytes.extend_from_slice(value.to_string().as_bytes());
+    }
+    for input in public_inputs {
+        input
+            .serialize_compressed(&mut bytes)
+            .map_err(|error| format!("failed to serialize relation digest: {error}"))?;
+    }
+    let mut digest = 14_695_981_039_346_656_037_u64;
+    for byte in bytes {
+        digest ^= u64::from(byte);
+        digest = digest.wrapping_mul(1_099_511_628_211_u64);
+    }
+    let safe = (digest & ((1_u64 << 52) - 1)).max(2);
+    Ok(safe as f64)
+}
+
+pub fn relation_digest(request: &AdapterRequest) -> Result<f64, String> {
+    let plan = build_plan(request)?;
+    relation_digest_bytes(request, &plan.public_inputs)
 }
 
 fn hash_native(left: Fr, right: Fr, rounds: usize) -> Fr {
@@ -682,6 +711,15 @@ mod tests {
             assert!(plan.public_inputs.len() > 1, "{workload}");
             assert!(plan.profile["hash_invocations"] > 1.0, "{workload}");
         }
+    }
+
+    #[test]
+    fn relation_digest_is_stable_for_shared_fixture() {
+        let value = request(CREDENTIAL);
+        assert_eq!(relation_digest(&value).unwrap(), relation_digest(&value).unwrap());
+        let mut changed = value.clone();
+        changed.seed += 2;
+        assert_ne!(relation_digest(&value).unwrap(), relation_digest(&changed).unwrap());
     }
 
     #[test]

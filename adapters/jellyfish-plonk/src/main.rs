@@ -162,19 +162,24 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     configure_rayon(request.threads)?;
 
     let native_timer = PhaseTimer::start();
+    let mut native_metrics = BTreeMap::from([(
+        "application_units".to_owned(),
+        request.scale as f64,
+    )]);
     if request.workload == WORKLOAD {
         std::hint::black_box(values(request));
     } else {
         relations::native_execution(request)?;
+        native_metrics.insert(
+            "relation_digest".to_owned(),
+            relations::relation_digest(request)?,
+        );
     }
     measured_event(
         request,
         "native_execution",
         &native_timer,
-        BTreeMap::from([(
-            "application_units".to_owned(),
-            request.scale as f64,
-        )]),
+        native_metrics,
     )?;
 
     let witness_timer = PhaseTimer::start();
