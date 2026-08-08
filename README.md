@@ -192,6 +192,10 @@ The summary is a reproducibility artifact, not a claim by itself. Exact
 normalized boundaries are left blank, and unsupported operations are absent
 rather than encoded as zero.
 
+`configs/circuit-vectors.json` is the public contract for the matched circuit
+vectors. It records each relation's public/private inputs, scale and sensitivity
+parameters, required metrics, and the adapters that currently implement it.
+
 ## Transparent STARK backend
 
 `adapters/winterfell-stark` implements the same chained multiplication

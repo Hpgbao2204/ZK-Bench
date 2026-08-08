@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "purpose": "matched workload and constraint-vector contract for ZK-Bench",
+  "vectors": [
+    {
+      "id": "controlled_kernel",
+      "relation": "chained multiplication: state_next = state * factor",
+      "private_inputs": ["initial field element"],
+      "public_inputs": ["factor", "output"],
+      "scale_parameter": "multiplication steps",
+      "required_metrics": ["constraint_count", "witness", "setup_or_preprocess", "prove_total", "verify_total", "proof_bytes", "peak_rss_mb", "parallel_speedup"],
+      "adapters": ["groth16_bn254", "groth16_bls12_381", "jellyfish_plonk_bn254", "winterfell_f128"]
+    },
+    {
+      "id": "sha256",
+      "relation": "SHA-256 digest equality with byte witnesses",
+      "private_inputs": ["message bytes"],
+      "public_inputs": ["32-byte digest"],
+      "scale_parameter": "message bytes",
+      "required_metrics": ["constraint_count", "witness", "setup_or_preprocess", "prove_total", "verify_total", "proof_bytes", "invalid_rejection_ms"],
+      "adapters": ["groth16_bn254"],
+      "status": "implemented_code_pilot_pending"
+    },
+    {
+      "id": "credential",
+      "relation": "bounded age plus hash-based identity aggregation",
+      "private_inputs": ["age", "subject", "nonce"],
+      "public_inputs": ["minimum age", "aggregate commitment"],
+      "scale_parameter": "credential assertions",
+      "sensitivity_parameters": ["age_bits", "hash_rounds"],
+      "required_metrics": ["constraint_count", "native_work_units", "prove_total", "verify_total", "peak_rss_mb", "invalid_rejection_ms"],
+      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254"]
+    },
+    {
+      "id": "batched_state",
+      "relation": "bounded state updates plus chained digest",
+      "private_inputs": ["bounded deltas"],
+      "public_inputs": ["initial state", "final state", "digest"],
+      "scale_parameter": "state updates",
+      "sensitivity_parameters": ["update_bits", "hash_rounds"],
+      "required_metrics": ["constraint_count", "native_work_units", "prove_total", "verify_total", "peak_rss_mb", "invalid_rejection_ms"],
+      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254"]
+    },
+    {
+      "id": "private_swap",
+      "relation": "price/range/authorization/hashlock/Merkle-membership predicate",
+      "private_inputs": ["amounts", "secret", "membership siblings", "authorization witness"],
+      "public_inputs": ["price", "hashlock aggregate", "root aggregate"],
+      "scale_parameter": "swap predicate instances",
+      "sensitivity_parameters": ["range_bits", "merkle_depth", "membership_paths", "hash_rounds", "ablation"],
+      "required_metrics": ["constraint_count", "component_profile", "prove_total", "verify_total", "peak_rss_mb", "invalid_rejection_ms"],
+      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254"],
+      "ablation_values": ["full", "no_membership", "no_range", "no_price", "no_authorization"]
+    },
+    {
+      "id": "private_swap_range_component",
+      "relation": "aggregated Ristretto range proof for two amounts per swap unit",
+      "private_inputs": ["committed amounts", "blindings"],
+      "public_inputs": ["Pedersen commitments"],
+      "scale_parameter": "swap units",
+      "sensitivity_parameters": ["range_bits"],
+      "required_metrics": ["aggregate_values", "prove_total", "verify_total", "proof_bytes", "invalid_rejection_ms"],
+      "adapters": ["bulletproofs_ristretto"],
+      "status": "implemented_code_pilot_pending"
+    }
+  ]
+}
