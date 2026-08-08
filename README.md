@@ -18,8 +18,8 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | Common JSON adapter protocol and campaign runner | Implemented and tested | Used by both controlled pilots |
 | Arkworks Groth16 on BN254 | Controlled and application relations implemented | Controlled pilot validated |
 | Jellyfish TurboPlonk 0.8.0 with KZG on BN254 | Controlled relation implemented | Controlled pilot validated |
-| Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Pilot configs exist; not yet measured |
-| PLONK application relations | Implemented and unit-tested | Three local pilot bundles validated; not final evidence |
+| Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Final-candidate bundles published; paper claim freeze pending |
+| PLONK application relations | Implemented and unit-tested | Final-candidate bundles published; paper claim freeze pending |
 | Transparent/STARK adapter | Not yet implemented | No evidence |
 | Bulletproofs range-proof baseline | Not yet implemented | No evidence |
 | On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
@@ -41,6 +41,19 @@ The application pilots are kept under `.local/reproductions/` while the final
 repetition protocol is being frozen. `scripts/check_cross_adapter.py` verifies
 shared credential, batched-state, and private-swap fixtures across Groth16 and
 PLONK before matched campaigns are promoted.
+
+The six final-candidate bundles are now public under `results/`:
+
+- `results/final-groth16-credential-v1/`
+- `results/final-groth16-state-v1/`
+- `results/final-groth16-swap-v1/`
+- `results/final-jellyfish-plonk-credential-v1/`
+- `results/final-jellyfish-plonk-state-v1/`
+- `results/final-jellyfish-plonk-swap-v1/`
+
+Each valid cell has ten recorded repetitions and each bundle passed the result
+validator. These are measured final-candidate evidence, not permission to make
+unbounded protocol-superiority claims.
 
 ## Reproduce the current checks
 
@@ -113,12 +126,11 @@ python scripts\release_guard.py --repo . --staged
 
 ## Next milestones
 
-1. Promote pilot configs to final candidates with at least ten repetitions and
-   validate the matched Groth16/PLONK application bundles.
+1. Freeze claim language and generate contribution-driven figures/tables from
+   the published final-candidate bundles.
 2. Add a pinned transparent-proof adapter and a specialized Bulletproofs
    range-proof baseline.
-3. Run application pilots, sensitivity studies, and final campaigns.
-4. Generate contribution-driven figures and exact tables from frozen evidence.
-5. Rewrite the marked and clean manuscripts only after the evidence freeze.
+3. Run additional final campaigns only when a new claim requires them.
+4. Rewrite the marked and clean manuscripts only after the evidence freeze.
 
 No current pilot result is a final paper claim.
