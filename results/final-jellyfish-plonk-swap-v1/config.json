@@ -1,0 +1,149 @@
+{
+  "adapter": "jellyfish-turboplonk-0.8.0-bn254-kzg",
+  "campaign_kind": "adapter-process",
+  "claim_id": "C4-PCAS-SENSITIVITY",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-jellyfish-plonk"
+  ],
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "evidence_class": "measured",
+  "experiment_id": "jellyfish-plonk-swap-sensitivity-final-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "parameter_set_ids": [
+        "full-depth8-range32-paths2"
+      ],
+      "repetitions": 10,
+      "scales": [
+        2
+      ],
+      "threads": [
+        1,
+        4
+      ]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 2,
+  "parallel_backend": "Rayon global thread pool, one adapter process per thread setting",
+  "parameter_sets": [
+    {
+      "id": "full-depth4-range32-paths2",
+      "parameters": {
+        "ablation": "full",
+        "hash_rounds": 5,
+        "membership_paths": 2,
+        "merkle_depth": 4,
+        "range_bits": 32,
+        "time_bits": 16
+      }
+    },
+    {
+      "id": "full-depth8-range32-paths2",
+      "parameters": {
+        "ablation": "full",
+        "hash_rounds": 5,
+        "membership_paths": 2,
+        "merkle_depth": 8,
+        "range_bits": 32,
+        "time_bits": 16
+      }
+    },
+    {
+      "id": "full-depth8-range32-paths4",
+      "parameters": {
+        "ablation": "full",
+        "hash_rounds": 5,
+        "membership_paths": 4,
+        "merkle_depth": 8,
+        "range_bits": 32,
+        "time_bits": 16
+      }
+    },
+    {
+      "id": "ablate-membership",
+      "parameters": {
+        "ablation": "no_membership",
+        "hash_rounds": 5,
+        "membership_paths": 2,
+        "merkle_depth": 8,
+        "range_bits": 32,
+        "time_bits": 16
+      }
+    },
+    {
+      "id": "ablate-range",
+      "parameters": {
+        "ablation": "no_range",
+        "hash_rounds": 5,
+        "membership_paths": 2,
+        "merkle_depth": 8,
+        "range_bits": 32,
+        "time_bits": 16
+      }
+    },
+    {
+      "id": "ablate-price",
+      "parameters": {
+        "ablation": "no_price",
+        "hash_rounds": 5,
+        "membership_paths": 2,
+        "merkle_depth": 8,
+        "range_bits": 32,
+        "time_bits": 16
+      }
+    },
+    {
+      "id": "ablate-authorization",
+      "parameters": {
+        "ablation": "no_authorization",
+        "hash_rounds": 5,
+        "membership_paths": 2,
+        "merkle_depth": 8,
+        "range_bits": 32,
+        "time_bits": 16
+      }
+    }
+  ],
+  "relation": {
+    "application_unit": "private-swap relation instance",
+    "hash_gadget": "explicit benchmark-only algebraic x^5 permutation; not labeled Poseidon",
+    "private_inputs": [
+      "secret",
+      "amounts",
+      "timelock remainder",
+      "authorization bit",
+      "Merkle siblings and directions"
+    ],
+    "public_inputs": [
+      "price numerator and denominator",
+      "current time and expiry",
+      "domain separator",
+      "aggregate hashlock",
+      "aggregate membership root when enabled"
+    ],
+    "security_scope": "private-swap predicate kernel; no consensus, finality, relayer, or end-to-end atomicity claim"
+  },
+  "repetitions": 10,
+  "require_clean_git": true,
+  "result_scope": "final-candidate evidence; validate bundle before paper reporting",
+  "sampling_interval_ms": 5,
+  "scales": [
+    2
+  ],
+  "schema_version": "1.0",
+  "seed": 20260808,
+  "threads": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "timeout_seconds": 600,
+  "variant": "jellyfish-turboplonk-0.8.0-bn254-kzg",
+  "workload": "private_swap"
+}

@@ -1,0 +1,78 @@
+{
+  "adapter": "ark-groth16-0.6.0-bn254",
+  "campaign_kind": "adapter-process",
+  "claim_id": "C3-APPLICATION-WORKLOADS",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-ark-groth16"
+  ],
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "evidence_class": "measured",
+  "experiment_id": "groth16-state-final-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "parameter_set_ids": [
+        "update16-x5r5"
+      ],
+      "repetitions": 10,
+      "scales": [
+        2,
+        8,
+        16
+      ],
+      "threads": [
+        1,
+        4
+      ]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 2,
+  "parallel_backend": "Rayon global thread pool, one adapter process per thread setting",
+  "parameter_sets": [
+    {
+      "id": "update16-x5r5",
+      "parameters": {
+        "hash_rounds": 5,
+        "update_bits": 16
+      }
+    }
+  ],
+  "relation": {
+    "application_unit": "authenticated state update",
+    "hash_gadget": "explicit benchmark-only algebraic x^5 permutation; not labeled Poseidon",
+    "private_inputs": [
+      "range-constrained update deltas"
+    ],
+    "public_inputs": [
+      "initial state",
+      "final state",
+      "aggregate update digest"
+    ],
+    "security_scope": "authenticated state-transition kernel; no consensus, finality, or bridge-security claim"
+  },
+  "repetitions": 10,
+  "require_clean_git": true,
+  "result_scope": "final-candidate evidence; validate bundle before paper reporting",
+  "sampling_interval_ms": 5,
+  "scales": [
+    2,
+    4,
+    8,
+    16
+  ],
+  "schema_version": "1.0",
+  "seed": 20260731,
+  "threads": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "timeout_seconds": 600,
+  "variant": "ark-groth16-0.6.0-bn254",
+  "workload": "batched_state"
+}
