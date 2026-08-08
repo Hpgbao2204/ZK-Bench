@@ -22,18 +22,21 @@ use zkbench_adapter_sdk::{
     emit, emit_result, read_request_from_stdin,
 };
 
+mod relations;
+
 const ADAPTER: &str = "jellyfish-turboplonk-0.8.0-bn254-kzg";
 const WORKLOAD: &str = "controlled_kernel";
 static RAYON_THREADS: OnceLock<Result<usize, String>> = OnceLock::new();
 
 type Snark = PlonkKzgSnark<Bn254>;
 
-struct ControlledCircuit {
+struct CircuitBundle {
     circuit: PlonkCircuit<Fr>,
     public_inputs: Vec<Fr>,
     logical_gates: usize,
     domain_rows: usize,
     variables: usize,
+    profile: BTreeMap<String, f64>,
 }
 
 struct RunOutcome {
@@ -101,14 +104,9 @@ fn values(request: &AdapterRequest) -> (Fr, Fr, Fr) {
     (initial, factor, output)
 }
 
-fn build_circuit(request: &AdapterRequest) -> Result<ControlledCircuit, Box<dyn Error>> {
-    if request.workload != WORKLOAD {
-        return Err(format!(
-            "unsupported workload {}; expected {WORKLOAD}",
-            request.workload
-        )
-        .into());
-    }
+fn build_controlled_circuit(
+    request: &AdapterRequest,
+) -> Result<CircuitBundle, Box<dyn Error>> {
     if !request.parameters.is_empty() {
         return Err("controlled_kernel does not accept workload parameters".into());
     }
@@ -135,12 +133,28 @@ fn build_circuit(request: &AdapterRequest) -> Result<ControlledCircuit, Box<dyn 
     circuit.finalize_for_arithmetization()?;
     let domain_rows = circuit.num_gates();
     let variables = circuit.num_vars();
-    Ok(ControlledCircuit {
+    Ok(CircuitBundle {
         circuit,
         public_inputs,
         logical_gates,
         domain_rows,
         variables,
+        profile: BTreeMap::from([("application_units".to_owned(), request.scale as f64)]),
+    })
+}
+
+fn build_circuit(request: &AdapterRequest) -> Result<CircuitBundle, Box<dyn Error>> {
+    if request.workload == WORKLOAD {
+        return build_controlled_circuit(request);
+    }
+    let application = relations::build_application(request)?;
+    Ok(CircuitBundle {
+        circuit: application.circuit,
+        public_inputs: application.public_inputs,
+        logical_gates: application.logical_gates,
+        domain_rows: application.domain_rows,
+        variables: application.variables,
+        profile: application.profile,
     })
 }
 
@@ -148,7 +162,11 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     configure_rayon(request.threads)?;
 
     let native_timer = PhaseTimer::start();
-    let _ = values(request);
+    if request.workload == WORKLOAD {
+        std::hint::black_box(values(request));
+    } else {
+        relations::native_execution(request)?;
+    }
     measured_event(
         request,
         "native_execution",
@@ -161,28 +179,30 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
 
     let witness_timer = PhaseTimer::start();
     let controlled = build_circuit(request)?;
-    measured_event(
+    let mut witness_metrics = BTreeMap::from([
+        (
+            "application_units".to_owned(),
+            request.scale as f64,
+        ),
+        (
+            "plonk_logical_gates".to_owned(),
+            controlled.logical_gates as f64,
+        ),
+        (
+            "plonk_domain_rows".to_owned(),
+            controlled.domain_rows as f64,
+        ),
+        (
+            "plonk_variables".to_owned(),
+            controlled.variables as f64,
+        ),
+    ]);
+    witness_metrics.extend(controlled.profile.clone());
+    measured_duration(
         request,
         "witness",
-        &witness_timer,
-        BTreeMap::from([
-            (
-                "application_units".to_owned(),
-                request.scale as f64,
-            ),
-            (
-                "plonk_logical_gates".to_owned(),
-                controlled.logical_gates as f64,
-            ),
-            (
-                "plonk_domain_rows".to_owned(),
-                controlled.domain_rows as f64,
-            ),
-            (
-                "plonk_variables".to_owned(),
-                controlled.variables as f64,
-            ),
-        ]),
+        witness_timer.elapsed(),
+        witness_metrics,
     )?;
 
     let setup_timer = PhaseTimer::start();
@@ -346,7 +366,7 @@ mod tests {
 
     #[test]
     fn controlled_relation_has_explicit_plonk_sizes() {
-        let controlled = build_circuit(&request()).unwrap();
+        let controlled = build_controlled_circuit(&request()).unwrap();
         assert!(controlled.logical_gates > 1);
         assert!(controlled.domain_rows >= controlled.logical_gates);
         assert_eq!(controlled.public_inputs.len(), 2);
@@ -365,9 +385,24 @@ mod tests {
     }
 
     #[test]
-    fn rejects_application_workload_until_native_encoding_is_implemented() {
+    fn application_workloads_have_native_plonk_encodings() {
+        let mut value = request();
+        for workload in ["credential", "batched_state", "private_swap"] {
+            value.workload = workload.to_owned();
+            let application = build_circuit(&value).unwrap();
+            assert!(application.logical_gates > 2);
+            assert!(application.domain_rows >= application.logical_gates);
+        }
+    }
+
+    #[test]
+    fn private_swap_proves_and_rejects_wrong_public_input() {
         let mut value = request();
         value.workload = "private_swap".to_owned();
-        assert!(build_circuit(&value).is_err());
+        let valid = run(&value).unwrap();
+        assert!(valid.verify_ok);
+        value.run_id = "plonk-private-swap-invalid".to_owned();
+        value.invalid_case = Some("wrong_public_input".to_owned());
+        assert!(!run(&value).unwrap().verify_ok);
     }
 }
