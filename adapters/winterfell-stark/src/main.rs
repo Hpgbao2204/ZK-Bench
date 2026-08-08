@@ -22,18 +22,20 @@ static RAYON_THREADS: OnceLock<Result<usize, String>> = OnceLock::new();
 #[derive(Clone, Copy)]
 struct PublicInputs {
     start: BaseElement,
+    factor: BaseElement,
     result: BaseElement,
 }
 
 impl ToElements<BaseElement> for PublicInputs {
     fn to_elements(&self) -> Vec<BaseElement> {
-        vec![self.start, self.result]
+        vec![self.start, self.factor, self.result]
     }
 }
 
 struct WorkAir {
     context: AirContext<BaseElement>,
     start: BaseElement,
+    factor: BaseElement,
     result: BaseElement,
 }
 
@@ -42,15 +44,19 @@ impl Air for WorkAir {
     type PublicInputs = PublicInputs;
 
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
-        assert_eq!(trace_info.width(), 1);
+        assert_eq!(trace_info.width(), 2);
         Self {
             context: AirContext::new(
                 trace_info,
-                vec![TransitionConstraintDegree::new(3)],
-                2,
+                vec![
+                    TransitionConstraintDegree::new(2),
+                    TransitionConstraintDegree::new(1),
+                ],
+                3,
                 options,
             ),
             start: pub_inputs.start,
+            factor: pub_inputs.factor,
             result: pub_inputs.result,
         }
     }
@@ -62,13 +68,16 @@ impl Air for WorkAir {
         result: &mut [E],
     ) {
         let current = frame.current()[0];
-        result[0] = frame.next()[0] - (current.exp(3_u32.into()) + E::from(42_u32));
+        let factor = frame.current()[1];
+        result[0] = frame.next()[0] - (current * factor);
+        result[1] = frame.next()[1] - factor;
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let last = self.trace_length() - 1;
         vec![
             Assertion::single(0, 0, self.start),
+            Assertion::single(1, 0, self.factor),
             Assertion::single(0, last, self.result),
         ]
     }
@@ -106,6 +115,7 @@ impl Prover for WorkProver {
         let last = trace.length() - 1;
         PublicInputs {
             start: trace.get(0, 0),
+            factor: trace.get(1, 0),
             result: trace.get(0, last),
         }
     }
@@ -183,19 +193,22 @@ fn start_value(request: &AdapterRequest) -> BaseElement {
     BaseElement::new(request.seed.wrapping_add(3))
 }
 
-fn result_value(start: BaseElement, steps: usize) -> BaseElement {
+fn result_value(start: BaseElement, factor: BaseElement, steps: usize) -> BaseElement {
     let mut result = start;
-    for _ in 1..steps {
-        result = result.exp(3_u32.into()) + BaseElement::new(42);
+    for _ in 0..steps {
+        result *= factor;
     }
     result
 }
 
-fn build_trace(start: BaseElement, steps: usize) -> TraceTable<BaseElement> {
-    let mut trace = TraceTable::new(1, steps);
+fn build_trace(start: BaseElement, factor: BaseElement, steps: usize) -> TraceTable<BaseElement> {
+    let mut trace = TraceTable::new(2, steps);
     trace.fill(
-        |state| state[0] = start,
-        |_, state| state[0] = state[0].exp(3_u32.into()) + BaseElement::new(42),
+        |state| {
+            state[0] = start;
+            state[1] = factor;
+        },
+        |_, state| state[0] *= state[1],
     );
     trace
 }
@@ -242,7 +255,8 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
 
     let native_timer = PhaseTimer::start();
     let start = start_value(request);
-    let result = result_value(start, steps);
+    let factor = BaseElement::new(request.seed.wrapping_add(29));
+    let result = result_value(start, factor, steps);
     measured(
         request,
         "native_execution",
@@ -258,7 +272,7 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
         witness_timer,
         BTreeMap::from([
             ("trace_rows".to_owned(), request.scale as f64),
-            ("transition_constraints".to_owned(), 3.0),
+            ("transition_constraints".to_owned(), 2.0),
         ]),
     )?;
 
@@ -291,7 +305,11 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
     )?;
     Ok((
         decoded,
-        PublicInputs { start, result },
+        PublicInputs {
+            start,
+            factor,
+            result,
+        },
         proof_bytes.len(),
         steps,
     ))
@@ -342,8 +360,8 @@ fn real_main() -> Result<(), Box<dyn Error>> {
         verify_ok,
         proof_bytes: proof_bytes as u64,
         native_work_units: request.scale,
-        public_inputs: 2,
-        constraints: 3,
+        public_inputs: 3,
+        constraints: 2,
         relation_unit: "transition_constraints".to_owned(),
         invalid_case: request.invalid_case.clone(),
         error_type: if verify_ok {
@@ -361,11 +379,8 @@ mod tests {
 
     #[test]
     fn trace_has_expected_relation() {
-        let trace = build_trace(BaseElement::new(3), 16);
+        let trace = build_trace(BaseElement::new(3), BaseElement::new(5), 16);
         assert_eq!(trace.length(), 16);
-        assert_eq!(
-            trace.get(0, 1),
-            trace.get(0, 0).exp(3_u32.into()) + BaseElement::new(42)
-        );
+        assert_eq!(trace.get(0, 1), trace.get(0, 0) * trace.get(1, 0));
     }
 }

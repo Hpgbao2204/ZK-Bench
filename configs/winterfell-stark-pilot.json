@@ -30,13 +30,14 @@
   "os_cache_primer_runs": 2,
   "parallel_backend": "Winterfell concurrent backend through repository-local Rayon pool",
   "relation": {
-    "air": "x_next = x^3 + 42",
+    "air": "x_next = x * factor; factor_next = factor",
     "field": "F128",
     "private_inputs": [
       "execution trace"
     ],
     "public_inputs": [
       "start field element",
+      "factor field element",
       "result field element"
     ],
     "security_scope": "Winterfell transparent STARK implementation evidence; no generic STARK claim",

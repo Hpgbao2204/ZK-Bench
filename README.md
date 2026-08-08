@@ -173,7 +173,7 @@ rather than encoded as zero.
 
 ## Transparent STARK backend
 
-`adapters/winterfell-stark` implements the same chained exponentiation
+`adapters/winterfell-stark` implements the same chained multiplication
 relation as the controlled SNARK pilots over Winterfell's F128 field. It
 records trace construction, proof generation, serialization, verification,
 and explicit unsupported setup/KZG/MSM phases. The adapter uses a transparent
