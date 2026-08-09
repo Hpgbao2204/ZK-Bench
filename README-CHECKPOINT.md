@@ -57,8 +57,7 @@ and prediction layer cho ZKP benchmarking:
    holdout scales;
 5. raw corpus và protocol đo để công trình sau có thể tái sử dụng.
 
-Mỗi figure phải trả lời một research question hoặc chứng minh một claim. Không
-được thêm scheme/circuit nếu chưa có adapter, correctness test và result bundle.
+Mỗi figure phải trả lời một research question hoặc chứng minh một claim
 
 ## Bước tiếp theo
 
