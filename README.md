@@ -89,7 +89,15 @@ Validate the published pilots:
 ```powershell
 python scripts\validate_results.py results\controlled-groth16-pilot-v1
 python scripts\validate_results.py results\controlled-plonk-pilot-v1
+python scripts\validate_results.py results\cross-family-winterfell-f128-v2
 ```
+
+The `results/` tree also contains the published cross-family pilot bundles
+(Groth16 on additional curves, PLONK, Winterfell, SHA-256 Groth16, and
+Bulletproofs range) and `results/arithmetic-v1/`, which contains the raw,
+merged, summarized, and parallelism CSVs for the ten-curve arithmetic track.
+These are evidence artifacts; they are not protocol-wide rankings because the
+cross-family relations and native units differ.
 
 Check application semantics inside WSL after building the adapters:
 
