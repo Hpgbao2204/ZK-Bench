@@ -190,7 +190,7 @@ fn options() -> ProofOptions {
 }
 
 fn start_value(request: &AdapterRequest) -> BaseElement {
-    BaseElement::new(request.seed.wrapping_add(3))
+    BaseElement::new(request.seed.wrapping_add(3) as u128)
 }
 
 fn result_value(start: BaseElement, factor: BaseElement, steps: usize) -> BaseElement {
@@ -255,7 +255,7 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
 
     let native_timer = PhaseTimer::start();
     let start = start_value(request);
-    let factor = BaseElement::new(request.seed.wrapping_add(29));
+    let factor = BaseElement::new(request.seed.wrapping_add(29) as u128);
     let result = result_value(start, factor, steps);
     measured(
         request,
@@ -265,7 +265,7 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
     )?;
 
     let witness_timer = PhaseTimer::start();
-    let trace = build_trace(start, steps);
+    let trace = build_trace(start, factor, steps);
     measured(
         request,
         "witness",

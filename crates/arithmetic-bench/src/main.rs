@@ -2,7 +2,7 @@ use ark_bls12_377::Bls12_377;
 use ark_bls12_381::Bls12_381;
 use ark_bn254::Bn254;
 use ark_bw6_761::BW6_761;
-use ark_ec::{AffineRepr, CurveGroup, Pairing, VariableBaseMSM};
+use ark_ec::{CurveGroup, VariableBaseMSM, pairing::Pairing};
 use ark_ed_on_bls12_381::{EdwardsProjective as JubjubProjective, Fr as JubjubFr};
 use ark_ed_on_bn254::{EdwardsProjective as BabyJubjubProjective, Fr as BabyJubjubFr};
 use ark_ff::{FftField, Field, UniformRand};
@@ -238,7 +238,7 @@ where
                 .collect::<Vec<_>>();
             let start = Instant::now();
             let pairing = |(g1, g2): &(Vec<P::G1Affine>, Vec<P::G2Affine>)| {
-                black_box(P::multi_pairing(g1.clone(), g2.clone()));
+                let _ = black_box(P::multi_pairing(g1.clone(), g2.clone()));
             };
             if parallel {
                 pool.install(|| batches.par_iter().for_each(pairing));
