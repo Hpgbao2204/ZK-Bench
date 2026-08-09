@@ -277,14 +277,12 @@ mod tests {
 
     fn request() -> AdapterRequest {
         AdapterRequest {
-            schema_version: SCHEMA_VERSION,
-            event_type: "request",
             run_id: "bls377-test".to_owned(),
-            adapter: ADAPTER.to_owned(),
             workload: WORKLOAD.to_owned(),
             scale: 8,
             threads: 1,
             seed: 20260808,
+            mode: "warm".to_owned(),
             invalid_case: None,
             parameters: BTreeMap::new(),
         }
