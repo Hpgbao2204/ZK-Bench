@@ -13,6 +13,14 @@ use zkbench_adapter_sdk::{
 const ADAPTER: &str = "bulletproofs-5.0.0-ristretto";
 const RANGE_WORKLOAD: &str = "private_swap";
 
+fn verification_error_type(verify_ok: bool) -> Option<String> {
+    if verify_ok {
+        None
+    } else {
+        Some("cryptographic_rejection".to_owned())
+    }
+}
+
 fn seed_bytes(seed: u64) -> [u8; 32] {
     let mut bytes = [0_u8; 32];
     for (index, chunk) in bytes.chunks_exact_mut(8).enumerate() {
@@ -236,7 +244,7 @@ fn run(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
         constraints: (count * bits) as u64,
         relation_unit: "range_bits".to_owned(),
         invalid_case: request.invalid_case.clone(),
-        error_type: None,
+        error_type: verification_error_type(verify_ok),
     })?;
     Ok(())
 }
@@ -244,4 +252,18 @@ fn run(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     let request = read_request_from_stdin().map_err(|error| format!("request error: {error}"))?;
     run(&request)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::verification_error_type;
+
+    #[test]
+    fn cryptographic_rejection_is_classified_for_failed_verification() {
+        assert_eq!(verification_error_type(true), None);
+        assert_eq!(
+            verification_error_type(false).as_deref(),
+            Some("cryptographic_rejection")
+        );
+    }
 }
