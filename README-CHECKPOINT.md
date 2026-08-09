@@ -71,5 +71,30 @@ Mỗi figure phải trả lời một research question hoặc chứng minh mộ
 5. Chỉ sau khi evidence freeze mới sửa `Paper/main.tex`, `clean-main.tex`,
    response và cover letter.
 
+## Scope code mới và khả năng chạy trên máy hiện tại
+
+Các phần cần làm thêm là: canonical Exponentiate/SHA-256 trên nhiều family,
+phase bottleneck analysis, estimator có holdout validation, parallel/resource
+regimes, và các adapter Halo2/Gnark/Circom/Bellman nếu được cấp phép. Hình sau
+này phải trả lời các claim đó: canonical scaling, proof/RAM/CPU, phase
+bottleneck, measured-vs-predicted estimator, parallel saturation, và
+application ablation.
+
+Máy hiện tại là AMD Ryzen 7 7840HS (8 cores/16 logical CPUs), khoảng 31.3 GB
+RAM, WSL2. Máy đủ chạy:
+
+- unit/correctness tests, compile các adapter hiện tại;
+- canonical circuits cỡ nhỏ và vừa;
+- 3--10 repetitions, thread sweep 1/2/4/8;
+- arithmetic benchmark đến size 512 và các campaign hiện tại.
+
+Không nên chạy ngay full grid lớn hoặc SHA-256 preimage hàng chục KB trên tất
+cả toolchains. Những job đó có thể chiếm nhiều GB RAM, chạy hàng chục phút đến
+hàng giờ và dễ làm WSL swap. Với Halo2/Gnark/Circom/Bellman, phải hỏi trước
+khi tải dependency; nếu được phép thì đặt toàn bộ Cargo/npm/tool cache trong
+`.local/`, không dùng global. GPU chưa có metric usable. Chiến lược an toàn là
+compile từng adapter, chạy correctness, pilot nhỏ, kiểm tra RSS/runtime, rồi
+mới mở rộng scale và repetitions.
+
 Paper-facing output chỉ giữ PDF và table fragments; không commit paper source,
 review, plotting code hoặc private credentials lên public repository.
