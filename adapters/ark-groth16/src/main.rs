@@ -274,7 +274,7 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     let plan = build_plan(request)?;
     let mut native_metrics =
         BTreeMap::from([("application_units".to_owned(), plan.native_units as f64)]);
-    if request.workload != CONTROLLED_WORKLOAD {
+    if request.workload != CONTROLLED_WORKLOAD && request.workload != SHA256_WORKLOAD {
         native_metrics.insert(
             "relation_digest".to_owned(),
             relations::relation_digest(request)?,
