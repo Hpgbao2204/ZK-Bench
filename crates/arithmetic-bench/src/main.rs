@@ -61,11 +61,12 @@ fn field_benchmark<F: Field + UniformRand + Send + Sync>(
     curve: &str,
     repetitions: usize,
     seed: u64,
+    sizes: &[usize],
     pool: &ThreadPool,
     parallel: bool,
 ) -> io::Result<()> {
     for operation in ["field_add", "field_mul", "field_inv"] {
-        for &size in SIZES {
+        for &size in sizes {
             for repetition in 0..repetitions {
                 let mut rng = StdRng::seed_from_u64(
                     seed ^ (curve.len() as u64).wrapping_mul(0x9e37_79b9)
@@ -118,6 +119,7 @@ fn msm_benchmark<G>(
     curve: &str,
     repetitions: usize,
     seed: u64,
+    sizes: &[usize],
     pool: &ThreadPool,
     parallel: bool,
 ) -> io::Result<()>
@@ -126,7 +128,7 @@ where
     G::Affine: Send + Sync,
     G::ScalarField: Send + Sync,
 {
-    for &size in SIZES {
+    for &size in sizes {
         for repetition in 0..repetitions {
             let mut rng = StdRng::seed_from_u64(
                 seed ^ 0x4d53_4d00 ^ (curve.len() as u64) ^ size as u64 ^ repetition as u64,
@@ -169,10 +171,11 @@ fn ntt_benchmark<F: FftField + UniformRand + Send + Sync>(
     curve: &str,
     repetitions: usize,
     seed: u64,
+    sizes: &[usize],
     pool: &ThreadPool,
     parallel: bool,
 ) -> io::Result<()> {
-    for &size in SIZES {
+    for &size in sizes {
         let Some(domain) = Radix2EvaluationDomain::<F>::new(size) else {
             continue;
         };
@@ -211,6 +214,7 @@ fn pairing_benchmark<P>(
     curve: &str,
     repetitions: usize,
     seed: u64,
+    sizes: &[usize],
     pool: &ThreadPool,
     parallel: bool,
 ) -> io::Result<()>
@@ -219,8 +223,7 @@ where
     P::G1Affine: Send + Sync,
     P::G2Affine: Send + Sync,
 {
-    let pairing_sizes: &[usize] = &[2, 4, 8, 16, 32, 64];
-    for &size in pairing_sizes {
+    for size in sizes.iter().copied().filter(|size| *size <= 64) {
         for repetition in 0..repetitions {
             let mut rng = StdRng::seed_from_u64(
                 seed ^ 0x5041_4952 ^ (curve.len() as u64) ^ size as u64 ^ repetition as u64,
@@ -261,6 +264,7 @@ where
 fn main() -> io::Result<()> {
     let mut repetitions = 10_usize;
     let mut seed = 2026_u64;
+    let mut max_size = *SIZES.last().expect("nonempty size grid");
     let mut threads = 1_usize;
     let mut parallel = false;
     let mut output_path = None;
@@ -284,6 +288,13 @@ fn main() -> io::Result<()> {
                     .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing seed"))?
                     .parse()
                     .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid seed"))?;
+            }
+            "--max-size" => {
+                max_size = args
+                    .next()
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing max-size"))?
+                    .parse()
+                    .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid max-size"))?;
             }
             "--threads" => {
                 threads = args
@@ -314,11 +325,27 @@ fn main() -> io::Result<()> {
             "serial mode requires --threads 1; parallel mode requires a positive --threads",
         ));
     }
+    let sizes = SIZES
+        .iter()
+        .copied()
+        .filter(|size| *size <= max_size)
+        .collect::<Vec<_>>();
+    if sizes.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "--max-size must be at least 2",
+        ));
+    }
     let pool = ThreadPoolBuilder::new()
         .num_threads(threads)
         .build()
         .map_err(|error| io::Error::other(format!("failed to build thread pool: {error}")))?;
 
+    if let Some(path) = output_path.as_deref() {
+        if let Some(parent) = std::path::Path::new(path).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
     let file = output_path
         .as_deref()
         .map(std::fs::File::create)
@@ -334,12 +361,21 @@ fn main() -> io::Result<()> {
     };
     writer.header()?;
 
-    field_benchmark::<ark_bn254::Fr>(&mut writer, "BN254", repetitions, seed, &pool, parallel)?;
+    field_benchmark::<ark_bn254::Fr>(
+        &mut writer,
+        "BN254",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
     field_benchmark::<ark_bls12_377::Fr>(
         &mut writer,
         "BLS12-377",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -348,15 +384,25 @@ fn main() -> io::Result<()> {
         "BLS12-381",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
-    field_benchmark::<ark_bw6_761::Fr>(&mut writer, "BW6-761", repetitions, seed, &pool, parallel)?;
+    field_benchmark::<ark_bw6_761::Fr>(
+        &mut writer,
+        "BW6-761",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
     field_benchmark::<JubjubFr>(
         &mut writer,
         "Jubjub-BLS12-381",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -365,16 +411,26 @@ fn main() -> io::Result<()> {
         "BabyJubjub-BN254",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
 
-    ntt_benchmark::<ark_bn254::Fr>(&mut writer, "BN254", repetitions, seed, &pool, parallel)?;
+    ntt_benchmark::<ark_bn254::Fr>(
+        &mut writer,
+        "BN254",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
     ntt_benchmark::<ark_bls12_377::Fr>(
         &mut writer,
         "BLS12-377",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -383,15 +439,25 @@ fn main() -> io::Result<()> {
         "BLS12-381",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
-    ntt_benchmark::<ark_bw6_761::Fr>(&mut writer, "BW6-761", repetitions, seed, &pool, parallel)?;
+    ntt_benchmark::<ark_bw6_761::Fr>(
+        &mut writer,
+        "BW6-761",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
     ntt_benchmark::<JubjubFr>(
         &mut writer,
         "Jubjub-BLS12-381",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -400,6 +466,7 @@ fn main() -> io::Result<()> {
         "BabyJubjub-BN254",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -409,6 +476,7 @@ fn main() -> io::Result<()> {
         "BN254-G1",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -417,6 +485,7 @@ fn main() -> io::Result<()> {
         "BLS12-377-G1",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -425,6 +494,7 @@ fn main() -> io::Result<()> {
         "BLS12-381-G1",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -433,6 +503,7 @@ fn main() -> io::Result<()> {
         "BW6-761-G1",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -441,6 +512,7 @@ fn main() -> io::Result<()> {
         "Jubjub-BLS12-381",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
@@ -449,13 +521,46 @@ fn main() -> io::Result<()> {
         "BabyJubjub-BN254",
         repetitions,
         seed,
+        &sizes,
         &pool,
         parallel,
     )?;
 
-    pairing_benchmark::<Bn254>(&mut writer, "BN254", repetitions, seed, &pool, parallel)?;
-    pairing_benchmark::<Bls12_377>(&mut writer, "BLS12-377", repetitions, seed, &pool, parallel)?;
-    pairing_benchmark::<Bls12_381>(&mut writer, "BLS12-381", repetitions, seed, &pool, parallel)?;
-    pairing_benchmark::<BW6_761>(&mut writer, "BW6-761", repetitions, seed, &pool, parallel)?;
+    pairing_benchmark::<Bn254>(
+        &mut writer,
+        "BN254",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
+    pairing_benchmark::<Bls12_377>(
+        &mut writer,
+        "BLS12-377",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
+    pairing_benchmark::<Bls12_381>(
+        &mut writer,
+        "BLS12-381",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
+    pairing_benchmark::<BW6_761>(
+        &mut writer,
+        "BW6-761",
+        repetitions,
+        seed,
+        &sizes,
+        &pool,
+        parallel,
+    )?;
     Ok(())
 }

@@ -165,9 +165,15 @@ Build and run it inside the repository-local WSL toolchain:
 
 ```powershell
 wsl bash -lc 'cd /mnt/d/ZK\ Bench && ./scripts/wsl_cargo.sh build --release -p zkbench-arithmetic-bench'
-wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --output .local/arithmetic/raw.csv'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --max-size 512 --output .local/arithmetic/raw.csv'
 python scripts\summarize_arithmetic.py .local\arithmetic\raw.csv --output .local\arithmetic\summary.csv
 ```
+
+`--max-size` bounds the geometric size grid (`2` through the requested
+maximum). The `512` pilot is the recommended starting point because the
+BW6-761 multi-scalar multiplication measurements are substantially more
+expensive; omit the flag for the full grid through `2048` once the pilot is
+healthy.
 
 For the parallelism study, run the same binary with a fixed thread count and
 the `--parallel` flag. Each raw row records `threads` and `execution_mode`;
@@ -176,9 +182,10 @@ efficiency are computed from matched work rather than from a synthetic scale
 factor:
 
 ```powershell
-wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --threads 1 --output .local/arithmetic/raw-serial.csv'
-wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --threads 2 --parallel --output .local/arithmetic/raw-parallel-2.csv'
-wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --threads 4 --parallel --output .local/arithmetic/raw-parallel-4.csv'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --max-size 512 --threads 1 --output .local/arithmetic/raw-serial.csv'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --max-size 512 --threads 2 --parallel --output .local/arithmetic/raw-parallel-2.csv'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --max-size 512 --threads 4 --parallel --output .local/arithmetic/raw-parallel-4.csv'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && .local/wsl-cargo-target/release/zkbench-arithmetic-bench --repetitions 10 --max-size 512 --threads 8 --parallel --output .local/arithmetic/raw-parallel-8.csv'
 ```
 
 Merge the raw files before summarizing speedup and efficiency:
