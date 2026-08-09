@@ -81,20 +81,32 @@ bottleneck, measured-vs-predicted estimator, parallel saturation, và
 application ablation.
 
 Máy hiện tại là AMD Ryzen 7 7840HS (8 cores/16 logical CPUs), khoảng 31.3 GB
-RAM, WSL2. Máy đủ chạy:
+RAM, WSL2. Mục tiêu là khai thác full công suất máy và chạy benchmark trên
+scale lớn; campaign kéo dài hàng giờ là chấp nhận được. Không tự ý biến bài
+toán lớn thành pilot nhỏ chỉ để chạy nhanh.
+
+Quy trình thực nghiệm có hai phase:
+
+1. **Bug-check phase:** chạy scale nhỏ, ít repetitions, đủ correctness/invalid
+   cases để phát hiện lỗi adapter, schema, timeout, memory leak hoặc sai metric.
+2. **Full-scale phase:** sau khi phase 1 sạch, chạy toàn bộ scale, thread grid,
+   repetitions và workload đã định trước; giữ raw evidence và để job chạy hàng
+   giờ nếu cần.
+
+Ở full-scale phase, máy đủ chạy:
 
 - unit/correctness tests, compile các adapter hiện tại;
 - canonical circuits cỡ nhỏ và vừa;
 - 3--10 repetitions, thread sweep 1/2/4/8;
 - arithmetic benchmark đến size 512 và các campaign hiện tại.
 
-Không nên chạy ngay full grid lớn hoặc SHA-256 preimage hàng chục KB trên tất
-cả toolchains. Những job đó có thể chiếm nhiều GB RAM, chạy hàng chục phút đến
-hàng giờ và dễ làm WSL swap. Với Halo2/Gnark/Circom/Bellman, phải hỏi trước
-khi tải dependency; nếu được phép thì đặt toàn bộ Cargo/npm/tool cache trong
-`.local/`, không dùng global. GPU chưa có metric usable. Chiến lược an toàn là
-compile từng adapter, chạy correctness, pilot nhỏ, kiểm tra RSS/runtime, rồi
-mới mở rộng scale và repetitions.
+Các job lớn, chẳng hạn SHA-256 preimage hàng chục KB hoặc full matrix nhiều
+toolchain, có thể chiếm nhiều GB RAM và chạy hàng chục phút đến hàng giờ; đó là
+phần cần đo chứ không phải lý do để loại bỏ. Chỉ dừng hoặc chia nhỏ job khi có
+evidence về OOM, swap bất thường, timeout hoặc bug. Với Halo2/Gnark/Circom/
+Bellman, phải hỏi trước khi tải dependency; nếu được phép thì đặt toàn bộ
+Cargo/npm/tool cache trong `.local/`, không dùng global. GPU chưa có metric
+usable.
 
 Paper-facing output chỉ giữ PDF và table fragments; không commit paper source,
 review, plotting code hoặc private credentials lên public repository.
