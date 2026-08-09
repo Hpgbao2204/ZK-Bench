@@ -1,0 +1,68 @@
+{
+  "adapter": "ark-groth16-0.6.0-bn254",
+  "campaign_kind": "adapter-process",
+  "claim_id": "C2-CONTROLLED-SNARK",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-ark-groth16"
+  ],
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "evidence_class": "measured",
+  "experiment_id": "controlled-groth16-pilot-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "repetitions": 3,
+      "scales": [
+        64,
+        1024,
+        4096
+      ],
+      "threads": [
+        1,
+        4,
+        8
+      ]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 2,
+  "parallel_backend": "Rayon global thread pool, one adapter process per thread setting",
+  "relation": {
+    "constraint_formula": "scale chained multiplication constraints",
+    "curve": "BN254",
+    "private_inputs": [
+      "initial field element"
+    ],
+    "public_inputs": [
+      "factor field element",
+      "output field element"
+    ],
+    "security_scope": "same-curve controlled implementation evidence; no 128-bit security claim",
+    "setup": "circuit-specific trusted setup regenerated and measured per cold process"
+  },
+  "repetitions": 3,
+  "require_clean_git": true,
+  "result_scope": "within-stack pilot; no Groth16-versus-PLONK claim",
+  "sampling_interval_ms": 5,
+  "scales": [
+    64,
+    256,
+    1024,
+    4096
+  ],
+  "schema_version": "1.0",
+  "seed": 20260731,
+  "threads": [
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "timeout_seconds": 600,
+  "variant": "ark-groth16-0.6.0-bn254",
+  "workload": "controlled_kernel"
+}

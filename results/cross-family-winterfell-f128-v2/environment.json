@@ -1,0 +1,36 @@
+{
+  "adapter_binary_sha256": "1e9d49b03d0045b812bd29ce864ffbf8e7ba3d5520d30f7bac9717eb7cd00a5d",
+  "adapter_command": [
+    "/mnt/d/ZK Bench/.local/wsl-cargo-target/release/zkbench-winterfell-stark"
+  ],
+  "adapter_commit": "045609f7c669d9c8addd833c007ceab666099814",
+  "cargo_lock_sha256": "41fa06bd72e51dc98cf88d3a475e78d43ef681cf8bd0813e6b501f194c38ab70",
+  "config_hash": "294bad57ed211ce5f668890c93845dca664b6897d4ff1a7011a5c837b0436472",
+  "cpu_affinity_logical_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "cpu_model": "AMD Ryzen 7 7840HS w/ Radeon 780M Graphics",
+  "logical_cpus_visible": 16,
+  "physical_cores_visible": 8,
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "power_control": "not controlled by zkbench",
+  "python": "3.14.4 (main, Apr  8 2026, 04:02:31) [GCC 15.2.0]",
+  "runner": "adapter-process-campaign",
+  "thermal_control": "not controlled by zkbench",
+  "tracked_worktree_dirty": false
+}

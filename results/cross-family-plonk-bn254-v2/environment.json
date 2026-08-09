@@ -1,0 +1,36 @@
+{
+  "adapter_binary_sha256": "94d5e8f9e4dab65a9a1083ff37d49deff91e4cf66a2f9ce2be036f1c37a27def",
+  "adapter_command": [
+    "/mnt/d/ZK Bench/.local/wsl-cargo-target/release/zkbench-jellyfish-plonk"
+  ],
+  "adapter_commit": "5477ab05b549b750fa32dc9a1bc61898f74ebf21",
+  "cargo_lock_sha256": "41fa06bd72e51dc98cf88d3a475e78d43ef681cf8bd0813e6b501f194c38ab70",
+  "config_hash": "b51fa1bd9bd3db00079057822b5f305afd048981c6fdee344634f6bd7c48b6bb",
+  "cpu_affinity_logical_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "cpu_model": "AMD Ryzen 7 7840HS w/ Radeon 780M Graphics",
+  "logical_cpus_visible": 16,
+  "physical_cores_visible": 8,
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "power_control": "not controlled by zkbench",
+  "python": "3.14.4 (main, Apr  8 2026, 04:02:31) [GCC 15.2.0]",
+  "runner": "adapter-process-campaign",
+  "thermal_control": "not controlled by zkbench",
+  "tracked_worktree_dirty": false
+}
