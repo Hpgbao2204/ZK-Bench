@@ -195,7 +195,9 @@ fn start_value(request: &AdapterRequest) -> BaseElement {
 
 fn result_value(start: BaseElement, factor: BaseElement, steps: usize) -> BaseElement {
     let mut result = start;
-    for _ in 0..steps {
+    // A trace with `steps` rows contains `steps - 1` transitions. Keep the
+    // public terminal value aligned with the last trace row.
+    for _ in 1..steps {
         result *= factor;
     }
     result
@@ -393,5 +395,9 @@ mod tests {
         let trace = build_trace(BaseElement::new(3), BaseElement::new(5), 16);
         assert_eq!(trace.length(), 16);
         assert_eq!(trace.get(0, 1), trace.get(0, 0) * trace.get(1, 0));
+        assert_eq!(
+            result_value(BaseElement::new(3), BaseElement::new(5), 16),
+            trace.get(0, trace.length() - 1)
+        );
     }
 }
