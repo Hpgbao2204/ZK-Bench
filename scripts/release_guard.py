@@ -75,6 +75,8 @@ def rejection_reason(raw_path: str) -> str | None:
     top = lower_parts[0]
     if top == "results":
         if path.name not in RESULT_FILENAMES:
+            if len(path.parts) >= 2 and path.suffix.lower() == ".csv":
+                return None
             return "result bundle file is not allowlisted"
         return None
     if top in PUBLIC_DIRECTORIES:

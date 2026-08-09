@@ -21,6 +21,7 @@ class ReleaseGuardTests(unittest.TestCase):
             "tests/test_campaign.py",
             "results/pilot-v1/raw_results.csv",
             "results/pilot-v1/environment.json",
+            "results/arithmetic-v1/parallelism-v1.csv",
         ]
         self.assertEqual(
             {path: rejection_reason(path) for path in allowed},
@@ -34,6 +35,7 @@ class ReleaseGuardTests(unittest.TestCase):
             "scripts/plot_results.py",
             "figures/fig01.pdf",
             "results/pilot-v1/debug.log",
+            "results/arithmetic-v1/notes.txt",
             "wallet.key",
         ]
         self.assertTrue(all(rejection_reason(path) for path in rejected))
