@@ -1,5 +1,8 @@
 # ZK-Bench
 
+For the current chat handoff and next-step scope, read
+[README-CHECKPOINT.md](README-CHECKPOINT.md) first.
+
 ZK-Bench is an in-progress, application-driven benchmark for heterogeneous
 zero-knowledge proof implementations. The repository is being rebuilt from
 executable relations and per-run evidence before any paper-level comparison is

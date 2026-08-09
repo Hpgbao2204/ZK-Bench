@@ -15,6 +15,7 @@ class ReleaseGuardTests(unittest.TestCase):
         allowed = [
             "Cargo.lock",
             "README.md",
+            "README-CHECKPOINT.md",
             "adapters/jellyfish-plonk/src/main.rs",
             "configs/controlled-plonk-pilot.json",
             "scripts/run_bench.py",

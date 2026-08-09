@@ -13,6 +13,7 @@ PUBLIC_ROOT_FILES = {
     "Cargo.toml",
     "LICENSE",
     "README.md",
+    "README-CHECKPOINT.md",
     "pyproject.toml",
 }
 PUBLIC_DIRECTORIES = {
