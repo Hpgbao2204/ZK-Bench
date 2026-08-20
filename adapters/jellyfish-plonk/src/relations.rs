@@ -1,4 +1,4 @@
-use ark_bn254_jf::Fr;
+use crate::Fr;
 use ark_ff_jf::Field;
 use ark_serialize_jf::CanonicalSerialize;
 use jf_relation::{BoolVar, Circuit, PlonkCircuit, Variable};
@@ -19,11 +19,21 @@ struct RelationParameters {
     hash_rounds: usize,
     merkle_depth: usize,
     membership_paths: usize,
+    target_native_size: Option<usize>,
     ablation: String,
 }
 
 impl RelationParameters {
     fn from_request(request: &AdapterRequest) -> Result<Self, String> {
+        let scale_mode = request
+            .parameters
+            .get("scale_mode")
+            .map(|value| value.as_str().ok_or_else(|| "scale_mode must be a string".to_owned()))
+            .transpose()?
+            .unwrap_or("application_units");
+        if !matches!(scale_mode, "application_units" | "target_native_size") {
+            return Err(format!("unsupported scale_mode: {scale_mode}"));
+        }
         let ablation = request
             .parameters
             .get("ablation")
@@ -53,6 +63,14 @@ impl RelationParameters {
             hash_rounds: numeric_parameter(request, "hash_rounds", 5)?,
             merkle_depth: numeric_parameter(request, "merkle_depth", 8)?,
             membership_paths: numeric_parameter(request, "membership_paths", 2)?,
+            target_native_size: if scale_mode == "target_native_size" {
+                Some(
+                    usize::try_from(request.scale)
+                        .map_err(|_| "target native size does not fit usize".to_owned())?,
+                )
+            } else {
+                optional_numeric_parameter(request, "target_native_size")?
+            },
             ablation,
         })
     }
@@ -72,6 +90,27 @@ impl RelationParameters {
     fn authorization_enabled(&self) -> bool {
         self.ablation != "no_authorization"
     }
+}
+
+fn optional_numeric_parameter(
+    request: &AdapterRequest,
+    name: &str,
+) -> Result<Option<usize>, String> {
+    request
+        .parameters
+        .get(name)
+        .map(|value| {
+            let value = value
+                .as_u64()
+                .ok_or_else(|| format!("{name} must be a nonnegative integer"))?;
+            if value <= 1 {
+                return Err(format!(
+                    "{name} must exceed excluded numeric boundary values"
+                ));
+            }
+            usize::try_from(value).map_err(|_| format!("{name} does not fit usize"))
+        })
+        .transpose()
 }
 
 fn numeric_parameter(
@@ -107,6 +146,16 @@ fn bit_parameter(
         return Err(format!("{name} must not exceed 64 bits"));
     }
     Ok(value)
+}
+
+fn application_scale(request: &AdapterRequest) -> Result<usize, Box<dyn Error>> {
+    if request.parameters.get("scale_mode").and_then(|value| value.as_str())
+        == Some("target_native_size")
+    {
+        Ok(numeric_parameter(request, "application_units", 2)?)
+    } else {
+        Ok(usize::try_from(request.scale)?)
+    }
 }
 
 pub struct BuiltApplication {
@@ -380,6 +429,28 @@ fn swap_profile(
     profile
 }
 
+fn pad_to_target_domain(
+    circuit: &mut PlonkCircuit<Fr>,
+    target: usize,
+) -> Result<(), Box<dyn Error>> {
+    if !target.is_power_of_two() {
+        return Err("target_native_size for PLONK must be a power of two".into());
+    }
+    let minimum_logical_gates = target / 2 + 1;
+    if circuit.num_gates() > target {
+        return Err(format!(
+            "application circuit already has {} gates, exceeding target_native_size {target}",
+            circuit.num_gates()
+        )
+        .into());
+    }
+    let pad = circuit.create_variable(Fr::ONE)?;
+    while circuit.num_gates() < minimum_logical_gates {
+        circuit.mul_gate(pad, pad, pad)?;
+    }
+    Ok(())
+}
+
 fn synthesize_credential(
     circuit: &mut PlonkCircuit<Fr>,
     seed: u64,
@@ -555,7 +626,7 @@ pub fn relation_digest(request: &AdapterRequest) -> Result<f64, Box<dyn Error>> 
     if !supports(&request.workload) {
         return Err(format!("unsupported application workload: {}", request.workload).into());
     }
-    let scale = usize::try_from(request.scale)?;
+    let scale = application_scale(request)?;
     let parameters = RelationParameters::from_request(request)?;
     let public_inputs = match request.workload.as_str() {
         CREDENTIAL => credential_public_inputs(request.seed, scale, &parameters),
@@ -570,7 +641,7 @@ pub fn native_execution(request: &AdapterRequest) -> Result<(), Box<dyn Error>> 
     if !supports(&request.workload) {
         return Err(format!("unsupported application workload: {}", request.workload).into());
     }
-    let scale = usize::try_from(request.scale)?;
+    let scale = application_scale(request)?;
     let parameters = RelationParameters::from_request(request)?;
     let inputs = match request.workload.as_str() {
         CREDENTIAL => credential_public_inputs(request.seed, scale, &parameters),
@@ -586,7 +657,7 @@ pub fn build_application(request: &AdapterRequest) -> Result<BuiltApplication, B
     if !supports(&request.workload) {
         return Err(format!("unsupported application workload: {}", request.workload).into());
     }
-    let scale = usize::try_from(request.scale)?;
+    let scale = application_scale(request)?;
     let parameters = RelationParameters::from_request(request)?;
     let public_inputs = match request.workload.as_str() {
         CREDENTIAL => credential_public_inputs(request.seed, scale, &parameters),
@@ -624,17 +695,31 @@ pub fn build_application(request: &AdapterRequest) -> Result<BuiltApplication, B
         )?,
         _ => unreachable!("workload checked by supports"),
     }
+    if let Some(target) = parameters.target_native_size {
+        pad_to_target_domain(&mut circuit, target)?;
+    }
     circuit.check_circuit_satisfiability(&public_inputs)?;
     let logical_gates = circuit.num_gates();
     circuit.finalize_for_arithmetization()?;
     let domain_rows = circuit.num_gates();
+    if let Some(target) = parameters.target_native_size {
+        if domain_rows != target {
+            return Err(format!(
+                "PLONK finalized domain has {domain_rows} rows, expected target_native_size {target}"
+            )
+            .into());
+        }
+    }
     let variables = circuit.num_vars();
-    let profile = match request.workload.as_str() {
+    let mut profile = match request.workload.as_str() {
         CREDENTIAL => credential_profile(scale, &parameters),
         BATCHED_STATE => state_profile(scale, &parameters),
         PRIVATE_SWAP => swap_profile(scale, &parameters),
         _ => unreachable!("workload checked by supports"),
     };
+    if let Some(target) = parameters.target_native_size {
+        profile.insert("target_native_size".to_owned(), target as f64);
+    }
     Ok(BuiltApplication {
         circuit,
         public_inputs,
@@ -710,5 +795,16 @@ mod tests {
             .parameters
             .insert("ablation".to_owned(), "remove_everything".into());
         assert!(build_application(&value).is_err());
+    }
+
+    #[test]
+    fn target_native_size_pads_to_exact_domain() {
+        let mut value = request(CREDENTIAL);
+        value
+            .parameters
+            .insert("target_native_size".to_owned(), 4096_u64.into());
+        let plan = build_application(&value).unwrap();
+        assert_eq!(plan.domain_rows, 4096);
+        assert!(plan.logical_gates <= plan.domain_rows);
     }
 }

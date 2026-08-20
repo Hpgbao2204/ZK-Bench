@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "claims": [
+    {
+      "claim_id": "REPRO-RQ1-IDENTITY",
+      "claim_text": "Compare proving, verification, peak memory, proof size, and modeled EVM cost near the paper's 20k identity size.",
+      "evidence_class": "measured",
+      "experiment_ids": [
+        "paper-identity-groth16-v1",
+        "paper-identity-plonk-v1",
+        "paper-identity-stark-v1",
+        "paper-identity-bulletproofs-v1"
+      ],
+      "workload": "credential",
+      "variants": ["groth16", "plonk", "stark", "bulletproofs"],
+      "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes"],
+      "acceptance_rule": "Every adapter has ten valid 16384-native-unit observations, three wrong-public-input rejections, and a validated result bundle.",
+      "status": "implemented",
+      "output_paths": [".local/reproductions/paper-scale/identity-*-final-v1"],
+      "paper_destination": "time_comparison_error.png; economic_cost.png; memory_usage_comparison.png; proof_size_comparison.png"
+    },
+    {
+      "claim_id": "PAPER-RQ2-STATE-SCALING",
+      "claim_text": "Measure the state-transition scaling curves at seven power-of-two native sizes from 16384 through 1048576.",
+      "evidence_class": "measured",
+      "experiment_ids": [
+        "paper-state-groth16-v1",
+        "paper-state-plonk-v1",
+        "paper-state-stark-v1",
+        "paper-state-bulletproofs-v1"
+      ],
+      "workload": "batched_state",
+      "variants": ["groth16", "plonk", "stark", "bulletproofs"],
+      "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "native throughput"],
+      "acceptance_rule": "Every adapter has ten valid observations at all seven sizes, a small-scale invalid-proof rejection, and a validated result bundle.",
+      "status": "implemented",
+      "output_paths": [".local/reproductions/paper-scale/state-*-final-v1"],
+      "paper_destination": "scenario_prover_time.png; scenario_verifier_time.png; scenario_peak_memory.png; scenario_proof_size.png; prover_throughput.png"
+    },
+    {
+      "claim_id": "PAPER-RQ3-PCAS",
+      "claim_text": "Compare the PCAS workload at 65536 native units and derive its component and time-versus-gas panels.",
+      "evidence_class": "measured",
+      "experiment_ids": [
+        "paper-pcas-groth16-v1",
+        "paper-pcas-plonk-v1",
+        "paper-pcas-stark-v1",
+        "paper-pcas-bulletproofs-v1"
+      ],
+      "workload": "private_swap",
+      "variants": ["groth16", "plonk", "stark", "bulletproofs"],
+      "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "component profile"],
+      "acceptance_rule": "Every adapter has ten valid 65536-native-unit observations, wrong-public-input rejection, and a validated result bundle.",
+      "status": "implemented",
+      "output_paths": [".local/reproductions/paper-scale/pcas-*-final-v1"],
+      "paper_destination": "circuit_constraint_breakdown.png; tradeoff_time_vs_gas.png"
+    },
+    {
+      "claim_id": "PAPER-EVM-MODEL",
+      "claim_text": "Compute identity, batching, and PCAS EVM cost from measured proof bytes and a pinned gas schedule.",
+      "evidence_class": "modeled",
+      "experiment_ids": ["paper-evm-gas-v1"],
+      "workload": "identity,state,pcas",
+      "variants": ["groth16", "plonk", "stark"],
+      "metrics": ["fixed_gas", "amortized_gas_per_application_unit", "modeled_cost_usd"],
+      "acceptance_rule": "Every row names the model, consumes measured proof size, and remains separate from measured campaign CSVs.",
+      "status": "implemented",
+      "output_paths": [".local/reproductions/paper-scale/gas/*.csv"],
+      "paper_destination": "economic_cost.png; amortized_gas.png; tradeoff_time_vs_gas.png"
+    },
+    {
+      "claim_id": "PAPER-HYBRID-PROJECTION",
+      "claim_text": "Evaluate the manuscript's STARK-in-SNARK operating point as an analytical sensitivity model only.",
+      "evidence_class": "modeled",
+      "experiment_ids": ["paper-hybrid-sensitivity-v1"],
+      "workload": "private_swap",
+      "variants": ["stark-in-snark"],
+      "metrics": ["hybrid_prover_ms", "outer_verifier_gas", "break_even_outer_prover_ms"],
+      "acceptance_rule": "The output is deterministic from explicit inner time and outer-wrapper assumptions and is never merged with measured rows.",
+      "status": "implemented",
+      "output_paths": [".local/reproductions/paper-scale/models/hybrid.csv"],
+      "paper_destination": "recursive-aware discussion; no empirical figure"
+    }
+  ]
+}

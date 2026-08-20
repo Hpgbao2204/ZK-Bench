@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "evidence_class": "modeled",
+  "model_id": "reproduction-evm-gas-v1",
+  "evm_fork": "Istanbul-compatible alt_bn128 and EIP-2028 calldata schedule",
+  "transaction_intrinsic_gas": 21000,
+  "nonzero_calldata_gas_per_byte": 16,
+  "zero_calldata_gas_per_byte": 4,
+  "assumed_nonzero_fraction": 1.0,
+  "residual_batch_gas_per_application_unit": 50,
+  "verifier_compute_gas": {
+    "groth16": 154000,
+    "plonk": 260000,
+    "stark": 2000000
+  },
+  "gas_prices_gwei": [5, 20, 100],
+  "eth_usd": 3500,
+  "eth_usd_as_of": "2025-08-06",
+  "batch_sizes": [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096],
+  "excluded_adapters": {
+    "bulletproofs": "No EVM verifier is implemented; the paper excludes Bulletproofs from direct gas comparison"
+  }
+}

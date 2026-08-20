@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "evidence_class": "modeled",
+  "model_id": "reproduction-hybrid-sensitivity-v1",
+  "inner_adapter": "stark",
+  "outer_adapter": "groth16",
+  "outer_prover_assumptions_ms": [200, 400, 800, 1600, 3200, 6000, 8000],
+  "comparison_adapter": "plonk",
+  "formula": {
+    "hybrid_prover_ms": "measured_inner_stark_prover_ms + assumed_outer_wrapper_prover_ms",
+    "hybrid_verifier_gas": "modeled_outer_groth16_fixed_gas",
+    "break_even_outer_prover_ms": "measured_plonk_prover_ms - measured_inner_stark_prover_ms"
+  }
+}

@@ -9,6 +9,7 @@ ark-bls12-381.workspace = true
 ark-ff.workspace = true
 ark-groth16.workspace = true
 ark-relations.workspace = true
+ark-r1cs-std.workspace = true
 ark-serialize.workspace = true
 ark-std.workspace = true
 rayon.workspace = true

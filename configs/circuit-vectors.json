@@ -29,7 +29,7 @@
       "scale_parameter": "credential assertions",
       "sensitivity_parameters": ["age_bits", "hash_rounds"],
       "required_metrics": ["constraint_count", "native_work_units", "prove_total", "verify_total", "peak_rss_mb", "invalid_rejection_ms"],
-      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254"]
+      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254", "winterfell_f128", "bulletproofs_ristretto_r1cs"]
     },
     {
       "id": "batched_state",
@@ -39,7 +39,7 @@
       "scale_parameter": "state updates",
       "sensitivity_parameters": ["update_bits", "hash_rounds"],
       "required_metrics": ["constraint_count", "native_work_units", "prove_total", "verify_total", "peak_rss_mb", "invalid_rejection_ms"],
-      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254"]
+      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254", "winterfell_f128", "bulletproofs_ristretto_r1cs"]
     },
     {
       "id": "private_swap",
@@ -49,7 +49,7 @@
       "scale_parameter": "swap predicate instances",
       "sensitivity_parameters": ["range_bits", "merkle_depth", "membership_paths", "hash_rounds", "ablation"],
       "required_metrics": ["constraint_count", "component_profile", "prove_total", "verify_total", "peak_rss_mb", "invalid_rejection_ms"],
-      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254"],
+      "adapters": ["groth16_bn254", "jellyfish_plonk_bn254", "winterfell_f128", "bulletproofs_ristretto_r1cs"],
       "ablation_values": ["full", "no_membership", "no_range", "no_price", "no_authorization"]
     },
     {

@@ -1,5 +1,5 @@
 {
-  "adapter": "jellyfish-turboplonk-0.8.0-bn254-kzg",
+  "adapter": "jellyfish-turboplonk-0.8.0-bls12-381-kzg",
   "campaign_kind": "adapter-process",
   "claim_id": "C2-CONTROLLED-SNARK",
   "command": [
@@ -31,7 +31,7 @@
   "os_cache_primer_runs": 2,
   "parallel_backend": "Rayon global thread pool, one adapter process per thread setting",
   "relation": {
-    "curve": "BN254",
+    "curve": "BLS12-381",
     "encoding": "Jellyfish TurboPlonk 0.8.0 with KZG polynomial commitments",
     "jellyfish_commit": "b33995b68641a2742e4ad2c05ee4e15621ff43b0",
     "native_relation_unit": "padded PLONK evaluation-domain rows; logical gates retained separately",
@@ -65,6 +65,6 @@
     16
   ],
   "timeout_seconds": 600,
-  "variant": "jellyfish-turboplonk-0.8.0-bn254-kzg",
+  "variant": "jellyfish-turboplonk-0.8.0-bls12-381-kzg",
   "workload": "controlled_kernel"
 }

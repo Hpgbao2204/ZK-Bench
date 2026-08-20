@@ -1,4 +1,4 @@
-use ark_bn254_jf::{Bn254, Fr};
+use ark_bls12_381_jf::{Bls12_381, Fr};
 use ark_ff_jf::Field;
 use ark_serialize_jf::{CanonicalDeserialize, CanonicalSerialize};
 use jf_plonk::{
@@ -24,11 +24,11 @@ use zkbench_adapter_sdk::{
 
 mod relations;
 
-const ADAPTER: &str = "jellyfish-turboplonk-0.8.0-bn254-kzg";
+const ADAPTER: &str = "jellyfish-turboplonk-0.8.0-bls12-381-kzg";
 const WORKLOAD: &str = "controlled_kernel";
 static RAYON_THREADS: OnceLock<Result<usize, String>> = OnceLock::new();
 
-type Snark = PlonkKzgSnark<Bn254>;
+type Snark = PlonkKzgSnark<Bls12_381>;
 
 struct CircuitBundle {
     circuit: PlonkCircuit<Fr>,
@@ -162,10 +162,15 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     configure_rayon(request.threads)?;
 
     let native_timer = PhaseTimer::start();
-    let mut native_metrics = BTreeMap::from([(
-        "application_units".to_owned(),
-        request.scale as f64,
-    )]);
+    let application_units = request
+        .parameters
+        .get("application_units")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(request.scale);
+    let mut native_metrics = BTreeMap::from([
+        ("application_units".to_owned(), application_units as f64),
+        ("native_work_units".to_owned(), request.scale as f64),
+    ]);
     if request.workload == WORKLOAD {
         std::hint::black_box(values(request));
     } else {
@@ -214,7 +219,7 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     let srs_size = controlled.circuit.srs_size()?;
     let mut setup_rng =
         ChaCha20Rng::seed_from_u64(request.seed ^ 0xA11C_E5E7);
-    let srs = <Snark as UniversalSNARK<Bn254>>::universal_setup_for_testing(
+    let srs = <Snark as UniversalSNARK<Bls12_381>>::universal_setup_for_testing(
         srs_size,
         &mut setup_rng,
     )?;
@@ -265,7 +270,7 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     let verify_total_timer = PhaseTimer::start();
     let deserialize_timer = PhaseTimer::start();
     let decoded =
-        Proof::<Bn254>::deserialize_compressed(proof_buffer.as_slice())?;
+        Proof::<Bls12_381>::deserialize_compressed(proof_buffer.as_slice())?;
     let deserialize_elapsed = deserialize_timer.elapsed();
     let mut public_inputs = controlled.public_inputs;
     if request.invalid_case.as_deref() == Some("wrong_public_input") {

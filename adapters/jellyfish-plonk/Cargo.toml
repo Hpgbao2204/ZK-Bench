@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-ark-bn254-jf = { package = "ark-bn254", version = "0.5", features = ["curve"] }
+ark-bls12-381-jf = { package = "ark-bls12-381", version = "0.5", features = ["curve"] }
 ark-ff-jf = { package = "ark-ff", version = "0.5" }
 ark-serialize-jf = { package = "ark-serialize", version = "0.5" }
 jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "jf-plonk-v0.8.0", features = [

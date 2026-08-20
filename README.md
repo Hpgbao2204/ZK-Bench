@@ -22,14 +22,14 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | Arkworks Groth16 on BN254 | Controlled and application relations implemented | Controlled pilot validated |
 | Arkworks Groth16 on BLS12-381 | Controlled relation implemented for matched curve study | Pilot config added; no measured evidence yet |
 | Arkworks Groth16 on BLS12-377 | Controlled relation implemented for an additional Arkworks curve generation | Pilot config added; no measured evidence yet |
-| Jellyfish TurboPlonk 0.8.0 with KZG on BN254 | Controlled relation implemented | Controlled pilot validated |
+| Jellyfish TurboPlonk 0.8.0 with KZG on BLS12-381 | Controlled and application relations implemented | Paper-scale smoke matrix validated |
 | Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Final-candidate bundles published; paper claim freeze pending |
 | PLONK application relations | Implemented and unit-tested | Final-candidate bundles published; paper claim freeze pending |
-| Transparent/STARK adapter | Implemented as a Winterfell F128 exponentiation adapter with `air_trace_cells` native sizing | Validated ten-repetition bundle retained locally and used by the local figure pipeline |
-| Bulletproofs range and controlled R1CS baselines | Implemented over vendored Bulletproofs 5.0.0/Ristretto255 | Range bundle published; validated ten-repetition controlled R1CS bundle retained locally and used by the local figure pipeline |
+| Transparent/STARK adapter | Winterfell F128 adapter supports controlled, credential, batched-state, and private-swap domains with exact power-of-two `air_trace_cells` targets | All twelve paper-matrix smoke campaigns pass; full paper-scale campaigns pending |
+| Bulletproofs range and R1CS baselines | Vendored Bulletproofs 5.0.0/Ristretto255 supports controlled and paper-matrix application domains plus the specialized range API | All twelve paper-matrix smoke campaigns pass; full paper-scale campaigns pending |
 | Arithmetic backend across curve families | Implemented as a standalone raw runner over BN254, BLS12-377, BLS12-381, BW6-761, Jubjub, and BabyJubjub | Build/pilot pending; no paper evidence yet |
 | Common exponentiation/SHA-256 circuit backend | Chained multiplication is shared across SNARK/STARK pilots; SHA-256 gadget implemented for Groth16 BN254 | SHA-256 pilot pending; no cross-family claim yet |
-| On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
+| EVM gas and economic analysis | Pinned deterministic model consumes measured proof bytes; transaction receipts remain optional separate evidence | Paper model implemented; no receipt-gas bundle |
 
 The two controlled bundles are deliberately labelled as pilots. They contain
 three recorded repetitions per valid cell and must not be treated as
@@ -153,6 +153,27 @@ python scripts\release_guard.py --repo . --staged
    distribution/uncertainty panels.
 6. Rewrite the marked and clean manuscripts only after the multi-family
    evidence freeze.
+
+## Paper-scale reproduction matrix
+
+The executable matrix in `configs/reproduction-scale-campaigns.json` covers three
+workloads across Groth16, PLONK, Winterfell STARK, and Bulletproofs. Identity
+uses 16,384 native units, state scaling uses seven points from 16,384 through
+1,048,576, and PCAS uses 65,536. Final cells use ten recorded repetitions,
+two discarded primers, and a requested thread count of 16.
+
+List or smoke-test the matrix without downloading dependencies:
+
+```powershell
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && python3 scripts/run_reproduction_campaigns.py --list'
+wsl bash -lc 'cd /mnt/d/ZK\ Bench && python3 scripts/run_reproduction_campaigns.py --all --smoke --output-root .local/reproductions/paper-scale-smoke'
+```
+
+Final measurement campaigns require a clean tracked worktree. Run individual
+cells with repeated `--campaign` flags or use `--all`. After all twelve bundles
+validate, `Paper/rebuild_from_results.py` derives modeled gas, the hybrid
+sensitivity table, the manuscript data JSON, and all twelve chart assets from
+those bundles. `Paper/main.tex` is not modified by either command.
 
 No current pilot result is a final paper claim.
 

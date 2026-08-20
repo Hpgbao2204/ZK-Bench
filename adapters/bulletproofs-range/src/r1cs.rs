@@ -14,6 +14,9 @@ use zkbench_adapter_sdk::{
 use crate::{ADAPTER, seed_bytes, verification_error_type};
 
 pub const CONTROLLED_WORKLOAD: &str = "controlled_kernel";
+const CREDENTIAL_WORKLOAD: &str = "credential";
+const STATE_WORKLOAD: &str = "batched_state";
+const SWAP_WORKLOAD: &str = "private_swap";
 
 struct ChainInstance {
     start: Scalar,
@@ -21,13 +24,89 @@ struct ChainInstance {
     output: Scalar,
 }
 
-fn chain_instance(seed: u64, steps: usize) -> ChainInstance {
+fn numeric_parameter(request: &AdapterRequest, name: &str, default: usize) -> Result<usize, String> {
+    let value = request
+        .parameters
+        .get(name)
+        .map(|value| {
+            value
+                .as_u64()
+                .ok_or_else(|| format!("{name} must be a nonnegative integer"))
+        })
+        .transpose()?
+        .unwrap_or(default as u64);
+    if value <= 1 {
+        return Err(format!("{name} must exceed excluded numeric boundaries"));
+    }
+    usize::try_from(value).map_err(|_| format!("{name} does not fit usize"))
+}
+
+fn relation_steps(request: &AdapterRequest) -> Result<usize, String> {
+    if request.parameters.get("scale_mode").and_then(|value| value.as_str())
+        == Some("target_native_size")
+    {
+        return usize::try_from(request.scale).map_err(|_| "scale does not fit usize".to_owned());
+    }
+    if let Some(value) = request.parameters.get("target_native_size") {
+        let target = value
+            .as_u64()
+            .ok_or("target_native_size must be a nonnegative integer")?;
+        if target <= 1 {
+            return Err("target_native_size must exceed excluded numeric boundaries".to_owned());
+        }
+        return usize::try_from(target)
+            .map_err(|_| "target_native_size does not fit usize".to_owned());
+    }
+    let scale = usize::try_from(request.scale).map_err(|_| "scale does not fit usize")?;
+    let steps_per_unit = match request.workload.as_str() {
+        CONTROLLED_WORKLOAD => 1,
+        CREDENTIAL_WORKLOAD => {
+            2 * numeric_parameter(request, "age_bits", 8)?
+                + 9 * numeric_parameter(request, "hash_rounds", 5)?
+                + 2
+        }
+        STATE_WORKLOAD => {
+            numeric_parameter(request, "update_bits", 16)?
+                + 6 * numeric_parameter(request, "hash_rounds", 5)?
+                + 2
+        }
+        SWAP_WORKLOAD => {
+            let range = 2 * numeric_parameter(request, "range_bits", 64)?;
+            let time = numeric_parameter(request, "time_bits", 32)?;
+            let paths = numeric_parameter(request, "membership_paths", 2)?;
+            let depth = numeric_parameter(request, "merkle_depth", 32)?;
+            let hashes = (2 + paths * (depth + 2))
+                * 3
+                * numeric_parameter(request, "hash_rounds", 5)?;
+            range + time + hashes + 8
+        }
+        _ => return Err(format!("unsupported R1CS workload: {}", request.workload)),
+    };
+    scale
+        .checked_mul(steps_per_unit)
+        .ok_or_else(|| "R1CS relation size overflow".to_owned())
+}
+
+fn workload_factor(workload: &str, base: Scalar, index: usize) -> Scalar {
+    if workload == CONTROLLED_WORKLOAD {
+        return base;
+    }
+    let domain = match workload {
+        CREDENTIAL_WORKLOAD => 3_u64,
+        STATE_WORKLOAD => 5_u64,
+        SWAP_WORKLOAD => 7_u64,
+        _ => unreachable!("workload checked before factor schedule"),
+    };
+    base + Scalar::from(domain + (index % 17) as u64)
+}
+
+fn chain_instance(seed: u64, workload: &str, steps: usize) -> ChainInstance {
     let mut rng = ChaChaRng::from_seed(seed_bytes(seed));
     let start = Scalar::from(rng.next_u64().max(2));
     let factor = Scalar::from(rng.next_u64().max(2));
     let mut output = start;
-    for _ in 0..steps {
-        output *= factor;
+    for index in 0..steps {
+        output *= workload_factor(workload, factor, index);
     }
     ChainInstance {
         start,
@@ -42,11 +121,16 @@ fn append_public_instance(
     steps: usize,
     factor: &Scalar,
     output: &Scalar,
+    parameters: &BTreeMap<String, serde_json::Value>,
 ) {
     transcript.append_message(b"workload", workload.as_bytes());
     transcript.append_u64(b"steps", steps as u64);
     transcript.append_message(b"factor", factor.as_bytes());
     transcript.append_message(b"output", output.as_bytes());
+    for (name, value) in parameters {
+        transcript.append_message(b"parameter-name", name.as_bytes());
+        transcript.append_message(b"parameter-value", value.to_string().as_bytes());
+    }
 }
 
 fn chain_gadget<CS: ConstraintSystem>(
@@ -55,10 +139,12 @@ fn chain_gadget<CS: ConstraintSystem>(
     factor: Scalar,
     output: Scalar,
     steps: usize,
+    workload: &str,
 ) {
     let mut state = start;
-    for _ in 0..steps {
-        let (_, _, next) = cs.multiply(state.into(), factor.into());
+    for index in 0..steps {
+        let step_factor = workload_factor(workload, factor, index);
+        let (_, _, next) = cs.multiply(state.into(), step_factor.into());
         state = next;
     }
     cs.constrain(state - output);
@@ -69,26 +155,43 @@ fn emit_unsupported(request: &AdapterRequest, phase: &str, reason: &str) -> Resu
 }
 
 pub fn supports(workload: &str) -> bool {
-    workload == CONTROLLED_WORKLOAD
+    matches!(
+        workload,
+        CONTROLLED_WORKLOAD | CREDENTIAL_WORKLOAD | STATE_WORKLOAD | SWAP_WORKLOAD
+    )
 }
 
 pub fn run(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
-    let steps = usize::try_from(request.scale).map_err(|_| "scale does not fit usize")?;
+    if let Some(mode) = request.parameters.get("scale_mode") {
+        if mode.as_str() != Some("target_native_size") {
+            return Err("scale_mode must be target_native_size when present".into());
+        }
+    }
+    let steps = relation_steps(request)?;
     let generator_capacity = steps
         .checked_next_power_of_two()
         .ok_or("Bulletproof generator capacity overflow")?;
 
     let native_timer = PhaseTimer::start();
-    let instance = chain_instance(request.seed, steps);
+    let instance = chain_instance(request.seed, &request.workload, steps);
+    let application_units = request
+        .parameters
+        .get("application_units")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(request.scale);
+    let mut native_metrics = BTreeMap::from([
+        ("application_units".to_owned(), application_units as f64),
+        ("r1cs_multipliers".to_owned(), steps as f64),
+    ]);
+    if request.parameters.contains_key("target_native_size") {
+        native_metrics.insert("target_native_size".to_owned(), steps as f64);
+    }
     emit(&PhaseEvent::measured(
         request,
         ADAPTER,
         "native_execution",
         native_timer.elapsed(),
-        BTreeMap::from([
-            ("application_units".to_owned(), request.scale as f64),
-            ("r1cs_multipliers".to_owned(), steps as f64),
-        ]),
+        native_metrics,
     )?)?;
 
     let preprocess_timer = PhaseTimer::start();
@@ -114,6 +217,7 @@ pub fn run(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
         steps,
         &instance.factor,
         &instance.output,
+        &request.parameters,
     );
     let mut prover = Prover::new(&pc_gens, &mut prover_transcript);
     let mut rng = ChaChaRng::from_seed(seed_bytes(request.seed ^ 0xa5a5_a5a5_a5a5_a5a5));
@@ -135,6 +239,7 @@ pub fn run(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
         instance.factor,
         instance.output,
         steps,
+        &request.workload,
     );
     let metrics = prover.metrics();
     emit(&PhaseEvent::measured(
@@ -261,10 +366,24 @@ fn verify(
     bp_gens: &BulletproofGens,
 ) -> Result<(), bulletproofs::r1cs::R1CSError> {
     let mut transcript = Transcript::new(b"zkbench-bulletproofs-r1cs-chain-v1");
-    append_public_instance(&mut transcript, &request.workload, steps, &factor, &output);
+    append_public_instance(
+        &mut transcript,
+        &request.workload,
+        steps,
+        &factor,
+        &output,
+        &request.parameters,
+    );
     let mut verifier = Verifier::new(&mut transcript);
     let start_var = verifier.commit(start_commitment);
-    chain_gadget(&mut verifier, start_var, factor, output, steps);
+    chain_gadget(
+        &mut verifier,
+        start_var,
+        factor,
+        output,
+        steps,
+        &request.workload,
+    );
     verifier.verify(proof, pc_gens, bp_gens)
 }
 
@@ -288,12 +407,26 @@ mod tests {
 
     #[test]
     fn chain_instance_matches_repeated_multiplication() {
-        let value = chain_instance(17, 8);
+        let value = chain_instance(17, CONTROLLED_WORKLOAD, 8);
         let mut expected = value.start;
         for _ in 0..8 {
             expected *= value.factor;
         }
         assert_eq!(value.output, expected);
+    }
+
+    #[test]
+    fn paper_workloads_accept_target_native_size() {
+        for workload in [CREDENTIAL_WORKLOAD, STATE_WORKLOAD, SWAP_WORKLOAD] {
+            let mut value = request(None);
+            value.workload = workload.to_owned();
+            value.scale = 2;
+            value
+                .parameters
+                .insert("target_native_size".to_owned(), 256_u64.into());
+            assert_eq!(relation_steps(&value).unwrap(), 256);
+            run(&value).unwrap();
+        }
     }
 
     #[test]

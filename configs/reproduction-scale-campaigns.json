@@ -1,0 +1,125 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Executable reproduction matrix for the identity, state-scaling, and PCAS benchmark panels",
+  "defaults": {
+    "schema_version": "1.0",
+    "campaign_kind": "adapter-process",
+    "evidence_class": "measured",
+    "energy": {
+      "provider": "unavailable",
+      "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+    },
+    "mode": "cold",
+    "os_cache_primer_runs": 2,
+    "repetitions": 10,
+    "require_clean_git": true,
+    "sampling_interval_ms": 5,
+    "seed": 20260820,
+    "threads": [16],
+    "timeout_seconds": 14400
+  },
+  "adapters": {
+    "groth16": {
+      "adapter": "ark-groth16-0.6.0-bls12-381",
+      "command": [".local/wsl-cargo-target/release/zkbench-ark-groth16-bls12-381"],
+      "parallel_backend": "Arkworks Rayon global thread pool",
+      "variant": "ark-groth16-0.6.0-bls12-381"
+    },
+    "plonk": {
+      "adapter": "jellyfish-turboplonk-0.8.0-bls12-381-kzg",
+      "command": [".local/wsl-cargo-target/release/zkbench-jellyfish-plonk"],
+      "parallel_backend": "Jellyfish parallel feature with repository-local Rayon configuration",
+      "variant": "jellyfish-turboplonk-0.8.0-bls12-381-kzg"
+    },
+    "stark": {
+      "adapter": "winterfell-0.13.1-f128",
+      "command": [".local/wsl-cargo-target/release/zkbench-winterfell-stark"],
+      "parallel_backend": "Winterfell concurrent backend through repository-local Rayon pool",
+      "variant": "winterfell-0.13.1-f128"
+    },
+    "bulletproofs": {
+      "adapter": "bulletproofs-5.0.0-ristretto",
+      "command": [".local/wsl-cargo-target/release/zkbench-bulletproofs-range"],
+      "parallel_backend": "Bulletproofs R1CS prover; requested thread count is recorded but the proof API is internally serial",
+      "variant": "bulletproofs-5.0.0-ristretto"
+    }
+  },
+  "workloads": {
+    "identity": {
+      "claim_id": "PAPER-RQ1-IDENTITY",
+      "workload": "credential",
+      "scales": [16384],
+      "parameters": {
+        "age_bits": 8,
+        "application_units": 2,
+        "hash_rounds": 5,
+        "scale_mode": "target_native_size"
+      },
+      "relation": {
+        "application_unit": "credential assertion",
+        "native_size_target": "16384 native relation units, the nearest common power-of-two point to the paper's approximately 20k circuit",
+        "private_inputs": ["age", "subject", "nonce", "authorization witness"],
+        "public_inputs": ["minimum age", "aggregate credential commitment"]
+      },
+      "result_scope": "paper-scale identity campaign",
+      "invalid_cases": [{
+        "kind": "wrong_public_input",
+        "repetitions": 3,
+        "scales": [16384],
+        "threads": [16]
+      }]
+    },
+    "state": {
+      "claim_id": "PAPER-RQ2-STATE-SCALING",
+      "workload": "batched_state",
+      "scales": [16384, 32768, 65536, 131072, 262144, 524288, 1048576],
+      "parameters": {
+        "application_units": 2,
+        "hash_rounds": 5,
+        "scale_mode": "target_native_size",
+        "update_bits": 16
+      },
+      "relation": {
+        "application_unit": "batched state-transition primitive",
+        "native_size_target": "power-of-two sweep from 16384 through 1048576 native relation units",
+        "private_inputs": ["bounded state deltas"],
+        "public_inputs": ["initial state", "final state", "aggregate update digest"]
+      },
+      "result_scope": "paper-scale state campaign",
+      "invalid_cases": [{
+        "kind": "wrong_public_input",
+        "repetitions": 3,
+        "scales": [16384],
+        "threads": [16]
+      }]
+    },
+    "pcas": {
+      "claim_id": "PAPER-RQ3-PCAS",
+      "workload": "private_swap",
+      "scales": [65536],
+      "parameters": {
+        "ablation": "full",
+        "application_units": 2,
+        "hash_rounds": 5,
+        "membership_paths": 2,
+        "merkle_depth": 32,
+        "range_bits": 64,
+        "scale_mode": "target_native_size",
+        "time_bits": 32
+      },
+      "relation": {
+        "application_unit": "private cross-domain swap predicate",
+        "native_size_target": "65536 native relation units",
+        "private_inputs": ["amounts", "hashlock secret", "two depth-32 membership paths", "authorization and timelock witnesses"],
+        "public_inputs": ["price ratio", "time bounds", "domain", "hashlock aggregate", "root aggregate"]
+      },
+      "result_scope": "paper-scale PCAS campaign",
+      "invalid_cases": [{
+        "kind": "wrong_public_input",
+        "repetitions": 3,
+        "scales": [65536],
+        "threads": [16]
+      }]
+    }
+  }
+}

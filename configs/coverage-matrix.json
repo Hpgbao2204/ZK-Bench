@@ -15,8 +15,8 @@
       "adapter": "ark-groth16-0.6.0-bls12-381",
       "family": "pairing_snark",
       "curve_or_field": "BLS12-381",
-      "workloads": ["controlled_kernel"],
-      "status": "pilot_pending",
+      "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap"],
+      "status": "paper_scale_application_support_smoke_validated",
       "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
       "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
     },
@@ -30,9 +30,9 @@
       "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
     },
     {
-      "adapter": "jellyfish-plonk-0.8.0-bn254",
+      "adapter": "jellyfish-plonk-0.8.0-bls12-381",
       "family": "kzg_snark",
-      "curve_or_field": "BN254",
+      "curve_or_field": "BLS12-381",
       "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap"],
       "status": "measured_partial",
       "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
@@ -42,8 +42,8 @@
       "adapter": "bulletproofs-5.0.0-ristretto",
       "family": "transparent_inner_product",
       "curve_or_field": "Ristretto255",
-      "workloads": ["controlled_kernel", "private_swap_range_component"],
-      "status": "controlled_r1cs_ten_run_validated_local_and_range_measured",
+      "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap", "private_swap_range_component"],
+      "status": "paper_scale_application_kernel_smoke_validated_and_range_measured",
       "native_relation_unit": "r1cs_multipliers for controlled R1CS; range_bits for the specialized range proof",
       "phase_metrics": ["native_execution", "setup_or_preprocess", "commitment", "witness", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
       "unsupported_phases": ["fft_ntt", "msm", "key_load"]
@@ -52,8 +52,8 @@
       "adapter": "winterfell-0.13.1-f128",
       "family": "transparent_stark",
       "curve_or_field": "F128",
-      "workloads": ["controlled_kernel"],
-      "status": "ten_run_validated_local",
+      "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap"],
+      "status": "paper_scale_application_air_smoke_validated",
       "native_relation_unit": "air_trace_cells",
       "phase_metrics": ["native_execution", "witness", "prove_total", "serialize", "deserialize", "verify_total", "invalid_reject"],
       "unsupported_phases": ["setup_or_preprocess", "key_load", "msm", "fft_ntt"]

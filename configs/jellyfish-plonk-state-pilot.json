@@ -1,5 +1,5 @@
 {
-  "adapter": "jellyfish-turboplonk-0.8.0-bn254-kzg",
+  "adapter": "jellyfish-turboplonk-0.8.0-bls12-381-kzg",
   "campaign_kind": "adapter-process",
   "claim_id": "C3-APPLICATION-WORKLOADS",
   "command": [
@@ -52,6 +52,6 @@
   "seed": 20260808,
   "threads": [1, 2, 4],
   "timeout_seconds": 600,
-  "variant": "jellyfish-turboplonk-0.8.0-bn254-kzg",
+  "variant": "jellyfish-turboplonk-0.8.0-bls12-381-kzg",
   "workload": "batched_state"
 }

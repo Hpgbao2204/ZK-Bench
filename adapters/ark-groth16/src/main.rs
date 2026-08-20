@@ -272,8 +272,8 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
 
     let native_timer = PhaseTimer::start();
     let plan = build_plan(request)?;
-    let mut native_metrics =
-        BTreeMap::from([("application_units".to_owned(), plan.native_units as f64)]);
+    let mut native_metrics = plan.profile.clone();
+    native_metrics.insert("native_work_units".to_owned(), plan.native_units as f64);
     if request.workload != CONTROLLED_WORKLOAD && request.workload != SHA256_WORKLOAD {
         native_metrics.insert(
             "relation_digest".to_owned(),

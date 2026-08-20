@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::sync::OnceLock;
 use winterfell::crypto::{DefaultRandomCoin, MerkleTree, hashers::Blake3_256};
-use winterfell::math::{FieldElement, ToElements, fields::f128::BaseElement};
+use winterfell::math::{FieldElement, StarkField, ToElements, fields::f128::BaseElement};
 use winterfell::{
     Air, AirContext, Assertion, AuxRandElements, BatchingMethod, CompositionPoly,
     CompositionPolyTrace, DefaultConstraintCommitment, DefaultConstraintEvaluator, DefaultTraceLde,
@@ -17,6 +17,9 @@ use zkbench_adapter_sdk::{
 
 const ADAPTER: &str = "winterfell-0.13.1-f128";
 const WORKLOAD: &str = "controlled_kernel";
+const CREDENTIAL_WORKLOAD: &str = "credential";
+const STATE_WORKLOAD: &str = "batched_state";
+const SWAP_WORKLOAD: &str = "private_swap";
 const TRACE_WIDTH: usize = 1;
 static RAYON_THREADS: OnceLock<Result<usize, String>> = OnceLock::new();
 
@@ -187,7 +190,72 @@ fn options() -> ProofOptions {
 }
 
 fn start_value(request: &AdapterRequest) -> BaseElement {
-    BaseElement::new(request.seed.wrapping_add(3) as u128)
+    let domain = match request.workload.as_str() {
+        CREDENTIAL_WORKLOAD => 101_u64,
+        STATE_WORKLOAD => 211_u64,
+        SWAP_WORKLOAD => 307_u64,
+        _ => 3_u64,
+    };
+    BaseElement::new(request.seed.wrapping_add(domain) as u128)
+}
+
+fn supports(workload: &str) -> bool {
+    matches!(
+        workload,
+        WORKLOAD | CREDENTIAL_WORKLOAD | STATE_WORKLOAD | SWAP_WORKLOAD
+    )
+}
+
+fn trace_rows(request: &AdapterRequest) -> Result<usize, String> {
+    let scale_mode = request
+        .parameters
+        .get("scale_mode")
+        .map(|value| value.as_str().ok_or_else(|| "scale_mode must be a string".to_owned()))
+        .transpose()?
+        .unwrap_or("application_units");
+    if !matches!(scale_mode, "application_units" | "target_native_size") {
+        return Err(format!("unsupported scale_mode: {scale_mode}"));
+    }
+    let value = if scale_mode == "target_native_size" {
+        request.scale
+    } else {
+        request
+            .parameters
+            .get("target_native_size")
+            .map(|value| {
+                value
+                    .as_u64()
+                    .ok_or_else(|| "target_native_size must be a nonnegative integer".to_owned())
+            })
+            .transpose()?
+            .unwrap_or(request.scale)
+    };
+    if value <= 1 {
+        return Err("AIR trace size must exceed excluded numeric boundaries".to_owned());
+    }
+    let rows = usize::try_from(value).map_err(|_| "AIR trace size does not fit usize")?;
+    if !rows.is_power_of_two() {
+        return Err("Winterfell AIR trace size must be a power of two".to_owned());
+    }
+    Ok(rows)
+}
+
+fn factor_value(request: &AdapterRequest) -> BaseElement {
+    let mut digest = 14_695_981_039_346_656_037_u64;
+    for byte in request.workload.as_bytes() {
+        digest ^= u64::from(*byte);
+        digest = digest.wrapping_mul(1_099_511_628_211_u64);
+    }
+    for (name, value) in &request.parameters {
+        if name == "target_native_size" {
+            continue;
+        }
+        for byte in name.bytes().chain(value.to_string().bytes()) {
+            digest ^= u64::from(byte);
+            digest = digest.wrapping_mul(1_099_511_628_211_u64);
+        }
+    }
+    BaseElement::new(request.seed.wrapping_add(digest).max(2) as u128)
 }
 
 fn result_value(start: BaseElement, factor: BaseElement, steps: usize) -> BaseElement {
@@ -242,31 +310,41 @@ fn unsupported_events(request: &AdapterRequest) -> Result<(), String> {
 }
 
 fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), Box<dyn Error>> {
-    if request.workload != WORKLOAD {
+    if !supports(&request.workload) {
         return Err(format!(
-            "unsupported workload {}; expected controlled_kernel",
+            "unsupported workload {}; expected controlled_kernel, credential, batched_state, or private_swap",
             request.workload
         )
         .into());
     }
-    if !request.parameters.is_empty() {
+    if request.workload == WORKLOAD && !request.parameters.is_empty() {
         return Err("controlled_kernel does not accept workload parameters".into());
     }
     configure_rayon(request.threads)?;
-    let steps = usize::try_from(request.scale)?;
-    if !steps.is_power_of_two() {
-        return Err("Winterfell trace length must be a power of two".into());
-    }
+    let steps = trace_rows(request)?;
 
     let native_timer = PhaseTimer::start();
     let start = start_value(request);
-    let factor = BaseElement::new(request.seed.wrapping_add(29) as u128);
+    let factor = factor_value(request);
     let result = result_value(start, factor, steps);
+    let application_units = request
+        .parameters
+        .get("application_units")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(request.scale);
+    let mut native_metrics = BTreeMap::from([
+        ("application_units".to_owned(), application_units as f64),
+        ("air_trace_cells".to_owned(), native_relation_size(steps)? as f64),
+        ("relation_digest".to_owned(), factor.as_int() as f64),
+    ]);
+    if request.parameters.contains_key("target_native_size") {
+        native_metrics.insert("target_native_size".to_owned(), steps as f64);
+    }
     measured(
         request,
         "native_execution",
         native_timer,
-        BTreeMap::from([("native_work_units".to_owned(), request.scale as f64)]),
+        native_metrics,
     )?;
 
     let witness_timer = PhaseTimer::start();
@@ -277,7 +355,7 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
         "witness",
         witness_timer,
         BTreeMap::from([
-            ("trace_rows".to_owned(), request.scale as f64),
+            ("trace_rows".to_owned(), steps as f64),
             ("air_trace_cells".to_owned(), trace_cells as f64),
         ]),
     )?;
@@ -290,7 +368,7 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
         request,
         "prove_total",
         prove_timer,
-        BTreeMap::from([("trace_rows".to_owned(), request.scale as f64)]),
+        BTreeMap::from([("trace_rows".to_owned(), steps as f64)]),
     )?;
 
     let serialize_timer = PhaseTimer::start();
@@ -413,5 +491,27 @@ mod tests {
         assert_eq!(native_relation_size(16).unwrap(), 16);
         assert_eq!(native_relation_size(1024).unwrap(), 1024);
         assert!(native_relation_size(1024).unwrap() > 1);
+    }
+
+    #[test]
+    fn paper_workloads_accept_exact_target_trace_size() {
+        for workload in [CREDENTIAL_WORKLOAD, STATE_WORKLOAD, SWAP_WORKLOAD] {
+            let request = AdapterRequest {
+                run_id: format!("winterfell-{workload}"),
+                workload: workload.to_owned(),
+                scale: 2,
+                threads: 1,
+                seed: 7,
+                mode: "cold".to_owned(),
+                invalid_case: None,
+                parameters: BTreeMap::from([(
+                    "target_native_size".to_owned(),
+                    256_u64.into(),
+                )]),
+            };
+            assert_eq!(trace_rows(&request).unwrap(), 256);
+            let (_, _, _, rows) = run(&request).unwrap();
+            assert_eq!(rows, 256);
+        }
     }
 }

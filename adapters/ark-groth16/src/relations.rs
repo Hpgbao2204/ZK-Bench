@@ -1,8 +1,9 @@
-use ark_bn254::Fr;
+use crate::Fr;
 use ark_ff::Field;
 use ark_r1cs_std::{fields::fp::FpVar, prelude::*};
-use ark_relations::gr1cs::{
-    ConstraintSynthesizer, ConstraintSystemRef, SynthesisError,
+use ark_relations::{
+    gr1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError, Variable},
+    lc,
 };
 use ark_serialize::CanonicalSerialize;
 use std::collections::BTreeMap;
@@ -21,11 +22,21 @@ struct RelationParameters {
     hash_rounds: usize,
     merkle_depth: usize,
     membership_paths: usize,
+    target_native_size: Option<usize>,
     ablation: String,
 }
 
 impl RelationParameters {
     fn from_request(request: &AdapterRequest) -> Result<Self, String> {
+        let scale_mode = request
+            .parameters
+            .get("scale_mode")
+            .map(|value| value.as_str().ok_or_else(|| "scale_mode must be a string".to_owned()))
+            .transpose()?
+            .unwrap_or("application_units");
+        if !matches!(scale_mode, "application_units" | "target_native_size") {
+            return Err(format!("unsupported scale_mode: {scale_mode}"));
+        }
         let ablation = request
             .parameters
             .get("ablation")
@@ -55,6 +66,14 @@ impl RelationParameters {
             hash_rounds: numeric_parameter(request, "hash_rounds", 5)?,
             merkle_depth: numeric_parameter(request, "merkle_depth", 8)?,
             membership_paths: numeric_parameter(request, "membership_paths", 2)?,
+            target_native_size: if scale_mode == "target_native_size" {
+                Some(
+                    usize::try_from(request.scale)
+                        .map_err(|_| "target native size does not fit usize".to_owned())?,
+                )
+            } else {
+                optional_numeric_parameter(request, "target_native_size")?
+            },
             ablation,
         })
     }
@@ -74,6 +93,27 @@ impl RelationParameters {
     fn authorization_enabled(&self) -> bool {
         self.ablation != "no_authorization"
     }
+}
+
+fn optional_numeric_parameter(
+    request: &AdapterRequest,
+    name: &str,
+) -> Result<Option<usize>, String> {
+    request
+        .parameters
+        .get(name)
+        .map(|value| {
+            let value = value
+                .as_u64()
+                .ok_or_else(|| format!("{name} must be a nonnegative integer"))?;
+            if value <= 1 {
+                return Err(format!(
+                    "{name} must exceed excluded numeric boundary values"
+                ));
+            }
+            usize::try_from(value).map_err(|_| format!("{name} does not fit usize"))
+        })
+        .transpose()
 }
 
 fn bit_parameter(
@@ -135,8 +175,14 @@ pub fn build_plan(request: &AdapterRequest) -> Result<ApplicationPlan, String> {
     if !supports(&request.workload) {
         return Err(format!("unsupported application workload: {}", request.workload));
     }
-    let scale = usize::try_from(request.scale)
-        .map_err(|_| "application scale does not fit usize".to_owned())?;
+    let scale = if request.parameters.get("scale_mode").and_then(|value| value.as_str())
+        == Some("target_native_size")
+    {
+        numeric_parameter(request, "application_units", 2)?
+    } else {
+        usize::try_from(request.scale)
+            .map_err(|_| "application scale does not fit usize".to_owned())?
+    };
     let parameters = RelationParameters::from_request(request)?;
     let circuit = ApplicationCircuit {
         workload: request.workload.clone(),
@@ -153,7 +199,10 @@ pub fn build_plan(request: &AdapterRequest) -> Result<ApplicationPlan, String> {
         },
         circuit,
         public_inputs,
-        native_units: request.scale,
+        native_units: parameters
+            .target_native_size
+            .map(|value| value as u64)
+            .unwrap_or(request.scale),
         profile,
     })
 }
@@ -252,6 +301,9 @@ impl ApplicationCircuit {
             ("application_units".to_owned(), scale),
             ("hash_rounds".to_owned(), self.parameters.hash_rounds as f64),
         ]);
+        if let Some(target) = self.parameters.target_native_size {
+            profile.insert("target_native_size".to_owned(), target as f64);
+        }
         match self.workload.as_str() {
             CREDENTIAL => {
                 profile.insert("hash_invocations".to_owned(), 3.0 * scale);
@@ -665,12 +717,26 @@ impl ConstraintSynthesizer<Fr> for ApplicationCircuit {
         self,
         cs: ConstraintSystemRef<Fr>,
     ) -> Result<(), SynthesisError> {
+        let target_native_size = self.parameters.target_native_size;
         match self.workload.as_str() {
-            CREDENTIAL => self.synthesize_credential(cs),
-            BATCHED_STATE => self.synthesize_state(cs),
-            PRIVATE_SWAP => self.synthesize_swap(cs),
-            _ => Err(SynthesisError::Unsatisfiable),
+            CREDENTIAL => self.synthesize_credential(cs.clone())?,
+            BATCHED_STATE => self.synthesize_state(cs.clone())?,
+            PRIVATE_SWAP => self.synthesize_swap(cs.clone())?,
+            _ => return Err(SynthesisError::Unsatisfiable),
+        };
+        if let Some(target) = target_native_size {
+            if cs.num_constraints() > target {
+                return Err(SynthesisError::Unsatisfiable);
+            }
+            while cs.num_constraints() < target {
+                cs.enforce_r1cs_constraint(
+                    || lc!() + Variable::One,
+                    || lc!() + Variable::One,
+                    || lc!() + Variable::One,
+                )?;
+            }
         }
+        Ok(())
     }
 }
 
@@ -745,5 +811,18 @@ mod tests {
             .parameters
             .insert("ablation".to_owned(), "remove_everything".into());
         assert!(build_plan(&value).is_err());
+    }
+
+    #[test]
+    fn target_native_size_pads_application_exactly() {
+        let mut value = request(CREDENTIAL);
+        value
+            .parameters
+            .insert("target_native_size".to_owned(), 4096_u64.into());
+        let plan = build_plan(&value).unwrap();
+        let cs = ConstraintSystem::<Fr>::new_ref();
+        plan.circuit.generate_constraints(cs.clone()).unwrap();
+        assert!(cs.is_satisfied().unwrap());
+        assert_eq!(cs.num_constraints(), 4096);
     }
 }

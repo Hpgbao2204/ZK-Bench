@@ -15,6 +15,9 @@ use zkbench_adapter_sdk::{
     read_request_from_stdin,
 };
 
+#[path = "../../ark-groth16/src/relations.rs"]
+mod relations;
+
 const ADAPTER: &str = "ark-groth16-0.6.0-bls12-381";
 const WORKLOAD: &str = "controlled_kernel";
 static RAYON_THREADS: OnceLock<Result<usize, String>> = OnceLock::new();
@@ -25,6 +28,29 @@ struct MultiplicativeChain {
     factor: Option<Fr>,
     output: Option<Fr>,
     steps: usize,
+}
+
+#[derive(Clone)]
+enum BenchmarkCircuit {
+    Controlled(MultiplicativeChain),
+    Application(relations::ApplicationCircuit),
+}
+
+impl ConstraintSynthesizer<Fr> for BenchmarkCircuit {
+    fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
+        match self {
+            Self::Controlled(circuit) => circuit.generate_constraints(cs),
+            Self::Application(circuit) => circuit.generate_constraints(cs),
+        }
+    }
+}
+
+struct BenchmarkPlan {
+    circuit: BenchmarkCircuit,
+    setup_circuit: BenchmarkCircuit,
+    public_inputs: Vec<Fr>,
+    native_units: u64,
+    profile: BTreeMap<String, f64>,
 }
 
 impl ConstraintSynthesizer<Fr> for MultiplicativeChain {
@@ -85,6 +111,48 @@ fn values(request: &AdapterRequest) -> (Fr, Fr, Fr) {
     (initial, factor, output)
 }
 
+fn build_plan(request: &AdapterRequest) -> Result<BenchmarkPlan, Box<dyn Error>> {
+    if request.workload == WORKLOAD {
+        if !request.parameters.is_empty() {
+            return Err("controlled_kernel does not accept workload parameters".into());
+        }
+        let steps = usize::try_from(request.scale)?;
+        let (initial, factor, output) = values(request);
+        return Ok(BenchmarkPlan {
+            circuit: BenchmarkCircuit::Controlled(MultiplicativeChain {
+                initial: Some(initial),
+                factor: Some(factor),
+                output: Some(output),
+                steps,
+            }),
+            setup_circuit: BenchmarkCircuit::Controlled(MultiplicativeChain {
+                initial: None,
+                factor: None,
+                output: None,
+                steps,
+            }),
+            public_inputs: vec![factor, output],
+            native_units: request.scale,
+            profile: BTreeMap::from([("application_units".to_owned(), request.scale as f64)]),
+        });
+    }
+    if relations::supports(&request.workload) {
+        let plan = relations::build_plan(request)?;
+        return Ok(BenchmarkPlan {
+            circuit: BenchmarkCircuit::Application(plan.circuit),
+            setup_circuit: BenchmarkCircuit::Application(plan.setup_circuit),
+            public_inputs: plan.public_inputs,
+            native_units: plan.native_units,
+            profile: plan.profile,
+        });
+    }
+    Err(format!(
+        "unsupported workload {}; expected controlled_kernel, credential, batched_state, or private_swap",
+        request.workload
+    )
+    .into())
+}
+
 fn unsupported_events(request: &AdapterRequest) -> Result<(), String> {
     let reason = "Arkworks Groth16 does not expose stable per-run FFT/MSM/commitment hooks";
     for phase in ["fft_ntt", "msm", "commitment", "key_load"] {
@@ -94,38 +162,29 @@ fn unsupported_events(request: &AdapterRequest) -> Result<(), String> {
 }
 
 fn run(request: &AdapterRequest) -> Result<(bool, usize, usize, usize), Box<dyn Error>> {
-    if request.workload != WORKLOAD {
-        return Err(format!(
-            "unsupported workload {}; expected controlled_kernel",
-            request.workload
-        )
-        .into());
-    }
-    if !request.parameters.is_empty() {
-        return Err("controlled_kernel does not accept workload parameters".into());
-    }
     configure_rayon(request.threads)?;
-    let steps = usize::try_from(request.scale)?;
-    let (initial, factor, output) = values(request);
 
     let native_timer = PhaseTimer::start();
+    let plan = build_plan(request)?;
+    let mut native_metrics = plan.profile.clone();
+    native_metrics.insert("native_work_units".to_owned(), plan.native_units as f64);
+    if request.workload != WORKLOAD {
+        native_metrics.insert(
+            "relation_digest".to_owned(),
+            relations::relation_digest(request)?,
+        );
+    }
     emit(&PhaseEvent::measured(
         request,
         ADAPTER,
         "native_execution",
         native_timer.elapsed(),
-        BTreeMap::from([("native_work_units".to_owned(), request.scale as f64)]),
+        native_metrics,
     )?)?;
 
     let witness_timer = PhaseTimer::start();
-    let circuit = MultiplicativeChain {
-        initial: Some(initial),
-        factor: Some(factor),
-        output: Some(output),
-        steps,
-    };
     let cs = ConstraintSystem::<Fr>::new_ref();
-    circuit.clone().generate_constraints(cs.clone())?;
+    plan.circuit.clone().generate_constraints(cs.clone())?;
     let constraints = cs.num_constraints();
     if !cs.is_satisfied()? {
         return Err("controlled witness does not satisfy R1CS".into());
@@ -135,18 +194,17 @@ fn run(request: &AdapterRequest) -> Result<(bool, usize, usize, usize), Box<dyn 
         ADAPTER,
         "witness",
         witness_timer.elapsed(),
-        BTreeMap::from([("constraint_count".to_owned(), constraints as f64)]),
+        {
+            let mut metrics = plan.profile.clone();
+            metrics.insert("constraint_count".to_owned(), constraints as f64);
+            metrics
+        },
     )?)?;
 
     let setup_timer = PhaseTimer::start();
     let mut setup_rng = StdRng::seed_from_u64(request.seed ^ 0xA11C_E5E7);
     let proving_key = Groth16::<Bls12_381>::generate_random_parameters_with_reduction(
-        MultiplicativeChain {
-            initial: None,
-            factor: None,
-            output: None,
-            steps,
-        },
+        plan.setup_circuit,
         &mut setup_rng,
     )?;
     let processed_vk = prepare_verifying_key(&proving_key.vk);
@@ -161,7 +219,7 @@ fn run(request: &AdapterRequest) -> Result<(bool, usize, usize, usize), Box<dyn 
     let prove_timer = PhaseTimer::start();
     let mut proof_rng = StdRng::seed_from_u64(request.seed ^ 0xBADC_0FFE);
     let proof = Groth16::<Bls12_381>::create_random_proof_with_reduction(
-        circuit,
+        plan.circuit,
         &proving_key,
         &mut proof_rng,
     )?;
@@ -194,9 +252,12 @@ fn run(request: &AdapterRequest) -> Result<(bool, usize, usize, usize), Box<dyn 
         deserialize_timer.elapsed(),
         BTreeMap::from([("proof_bytes".to_owned(), proof_buffer.len() as f64)]),
     )?)?;
-    let mut public_inputs = vec![factor, output];
+    let mut public_inputs = plan.public_inputs;
     if request.invalid_case.as_deref() == Some("wrong_public_input") {
-        public_inputs[1] += Fr::ONE;
+        let last = public_inputs
+            .last_mut()
+            .ok_or("benchmark relation must expose public inputs")?;
+        *last += Fr::ONE;
     } else if request.invalid_case.is_some() {
         return Err(format!(
             "unsupported invalid case: {}",
@@ -296,5 +357,21 @@ mod tests {
         let mut invalid = request();
         invalid.invalid_case = Some("wrong_public_input".to_owned());
         assert!(!run(&invalid).unwrap().0);
+    }
+
+    #[test]
+    fn paper_application_uses_bls12_381_and_exact_target_size() {
+        let mut value = request();
+        value.workload = "credential".to_owned();
+        value.scale = 1024;
+        value.parameters = BTreeMap::from([
+            ("age_bits".to_owned(), 8_u64.into()),
+            ("application_units".to_owned(), 2_u64.into()),
+            ("hash_rounds".to_owned(), 5_u64.into()),
+            ("scale_mode".to_owned(), "target_native_size".into()),
+        ]);
+        let outcome = run(&value).unwrap();
+        assert!(outcome.0);
+        assert_eq!(outcome.2, 1024);
     }
 }
