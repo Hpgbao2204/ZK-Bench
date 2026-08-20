@@ -10,7 +10,7 @@
     "provider": "unavailable",
     "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
   },
-  "experiment_id": "winterfell-stark-pilot-v1",
+  "experiment_id": "winterfell-stark-pilot-v2-air-trace-cells",
   "invalid_cases": [
     {
       "kind": "wrong_public_input",
@@ -30,8 +30,10 @@
   "os_cache_primer_runs": 2,
   "parallel_backend": "Winterfell concurrent backend through repository-local Rayon pool",
   "relation": {
-    "air": "x_next = x * factor; factor_next = factor",
+    "air": "x_next = x * factor, with factor supplied as a public AIR constant",
     "field": "F128",
+    "native_relation_size": "trace_rows * trace_width",
+    "native_relation_unit": "air_trace_cells",
     "private_inputs": [
       "execution trace"
     ],
@@ -41,11 +43,13 @@
       "result field element"
     ],
     "security_scope": "Winterfell transparent STARK implementation evidence; no generic STARK claim",
+    "trace_width": 1,
+    "transition_constraint_count": 1,
     "setup": "transparent; no trusted setup"
   },
   "repetitions": 3,
   "require_clean_git": true,
-  "result_scope": "Winterfell transparent STARK pilot; matched vector only",
+  "result_scope": "Winterfell transparent STARK pilot with corrected AIR trace-cell native size; matched vector only",
   "sampling_interval_ms": 5,
   "scales": [
     16,

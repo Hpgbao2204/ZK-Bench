@@ -17,6 +17,7 @@ use zkbench_adapter_sdk::{
 
 const ADAPTER: &str = "winterfell-0.13.1-f128";
 const WORKLOAD: &str = "controlled_kernel";
+const TRACE_WIDTH: usize = 1;
 static RAYON_THREADS: OnceLock<Result<usize, String>> = OnceLock::new();
 
 #[derive(Clone, Copy)]
@@ -44,15 +45,12 @@ impl Air for WorkAir {
     type PublicInputs = PublicInputs;
 
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
-        assert_eq!(trace_info.width(), 2);
+        assert_eq!(trace_info.width(), TRACE_WIDTH);
         Self {
             context: AirContext::new(
                 trace_info,
-                vec![
-                    TransitionConstraintDegree::new(2),
-                    TransitionConstraintDegree::new(1),
-                ],
-                3,
+                vec![TransitionConstraintDegree::new(1)],
+                2,
                 options,
             ),
             start: pub_inputs.start,
@@ -68,16 +66,14 @@ impl Air for WorkAir {
         result: &mut [E],
     ) {
         let current = frame.current()[0];
-        let factor = frame.current()[1];
+        let factor = E::from(self.factor);
         result[0] = frame.next()[0] - (current * factor);
-        result[1] = frame.next()[1] - factor;
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let last = self.trace_length() - 1;
         vec![
             Assertion::single(0, 0, self.start),
-            Assertion::single(1, 0, self.factor),
             Assertion::single(0, last, self.result),
         ]
     }
@@ -89,11 +85,12 @@ impl Air for WorkAir {
 
 struct WorkProver {
     options: ProofOptions,
+    factor: BaseElement,
 }
 
 impl WorkProver {
-    fn new(options: ProofOptions) -> Self {
-        Self { options }
+    fn new(options: ProofOptions, factor: BaseElement) -> Self {
+        Self { options, factor }
     }
 }
 
@@ -115,7 +112,7 @@ impl Prover for WorkProver {
         let last = trace.length() - 1;
         PublicInputs {
             start: trace.get(0, 0),
-            factor: trace.get(1, 0),
+            factor: self.factor,
             result: trace.get(0, last),
         }
     }
@@ -204,15 +201,21 @@ fn result_value(start: BaseElement, factor: BaseElement, steps: usize) -> BaseEl
 }
 
 fn build_trace(start: BaseElement, factor: BaseElement, steps: usize) -> TraceTable<BaseElement> {
-    let mut trace = TraceTable::new(2, steps);
+    let mut trace = TraceTable::new(TRACE_WIDTH, steps);
     trace.fill(
         |state| {
             state[0] = start;
-            state[1] = factor;
         },
-        |_, state| state[0] *= state[1],
+        |_, state| state[0] *= factor,
     );
     trace
+}
+
+fn native_relation_size(trace_rows: usize) -> Result<u64, String> {
+    trace_rows
+        .checked_mul(TRACE_WIDTH)
+        .and_then(|value| u64::try_from(value).ok())
+        .ok_or_else(|| "AIR trace-cell count overflow".to_owned())
 }
 
 fn measured(
@@ -268,19 +271,20 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
 
     let witness_timer = PhaseTimer::start();
     let trace = build_trace(start, factor, steps);
+    let trace_cells = native_relation_size(steps)?;
     measured(
         request,
         "witness",
         witness_timer,
         BTreeMap::from([
             ("trace_rows".to_owned(), request.scale as f64),
-            ("transition_constraints".to_owned(), 2.0),
+            ("air_trace_cells".to_owned(), trace_cells as f64),
         ]),
     )?;
 
     unsupported_events(request)?;
     let prove_timer = PhaseTimer::start();
-    let prover = WorkProver::new(options());
+    let prover = WorkProver::new(options(), factor);
     let proof = prover.prove(trace)?;
     measured(
         request,
@@ -374,8 +378,8 @@ fn real_main() -> Result<(), Box<dyn Error>> {
         proof_bytes: proof_bytes as u64,
         native_work_units: request.scale,
         public_inputs: 3,
-        constraints: 2,
-        relation_unit: "transition_constraints".to_owned(),
+        constraints: native_relation_size(steps)?,
+        relation_unit: "air_trace_cells".to_owned(),
         invalid_case: request.invalid_case.clone(),
         error_type: if verify_ok {
             None
@@ -394,10 +398,20 @@ mod tests {
     fn trace_has_expected_relation() {
         let trace = build_trace(BaseElement::new(3), BaseElement::new(5), 16);
         assert_eq!(trace.length(), 16);
-        assert_eq!(trace.get(0, 1), trace.get(0, 0) * trace.get(1, 0));
+        assert_eq!(
+            trace.get(0, 1),
+            trace.get(0, 0) * BaseElement::new(5)
+        );
         assert_eq!(
             result_value(BaseElement::new(3), BaseElement::new(5), 16),
             trace.get(0, trace.length() - 1)
         );
+    }
+
+    #[test]
+    fn native_relation_size_scales_with_trace_cells() {
+        assert_eq!(native_relation_size(16).unwrap(), 16);
+        assert_eq!(native_relation_size(1024).unwrap(), 1024);
+        assert!(native_relation_size(1024).unwrap() > 1);
     }
 }

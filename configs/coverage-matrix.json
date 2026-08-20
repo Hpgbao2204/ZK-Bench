@@ -53,6 +53,7 @@
       "curve_or_field": "F128",
       "workloads": ["controlled_kernel"],
       "status": "pilot_pending",
+      "native_relation_unit": "air_trace_cells",
       "phase_metrics": ["native_execution", "witness", "prove_total", "serialize", "deserialize", "verify_total", "invalid_reject"],
       "unsupported_phases": ["setup_or_preprocess", "key_load", "msm", "fft_ntt"]
     }
