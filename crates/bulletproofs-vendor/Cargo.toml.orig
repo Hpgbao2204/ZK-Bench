@@ -8,7 +8,6 @@ version = "5.0.0"
 authors = ["Cathie Yun <cathieyun@gmail.com>",
            "Henry de Valence <hdevalence@hdevalence.ca>",
            "Oleg Andreev <oleganza@gmail.com>"]
-readme = "README.md"
 license = "MIT"
 repository = "https://github.com/zkcrypto/bulletproofs"
 categories = ["cryptography"]
@@ -37,28 +36,3 @@ yoloproofs = []
 std = ["rand", "rand/std", "rand/std_rng", "thiserror"]
 nightly = ["subtle/nightly", "clear_on_drop/nightly"]
 docs = ["nightly"]
-
-
-[[test]]
-name = "range_proof"
-
-[[test]]
-name = "r1cs"
-required-features = ["yoloproofs"]
-
-[[bench]]
-name = "range_proof"
-harness = false
-
-[[bench]]
-name = "generators"
-harness = false
-
-[[bench]]
-name = "r1cs"
-harness = false
-required-features = ["yoloproofs"]
-
-[[bench]]
-name = "linear_proof"
-harness = false

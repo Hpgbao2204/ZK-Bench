@@ -19,7 +19,6 @@ authors = [
     "Oleg Andreev <oleganza@gmail.com>",
 ]
 description = "A pure-Rust implementation of Bulletproofs using Ristretto"
-readme = "README.md"
 keywords = [
     "cryptography",
     "crypto",
@@ -30,30 +29,6 @@ keywords = [
 categories = ["cryptography"]
 license = "MIT"
 repository = "https://github.com/zkcrypto/bulletproofs"
-
-[[test]]
-name = "range_proof"
-
-[[test]]
-name = "r1cs"
-required-features = ["yoloproofs"]
-
-[[bench]]
-name = "range_proof"
-harness = false
-
-[[bench]]
-name = "generators"
-harness = false
-
-[[bench]]
-name = "r1cs"
-harness = false
-required-features = ["yoloproofs"]
-
-[[bench]]
-name = "linear_proof"
-harness = false
 
 [dependencies.byteorder]
 version = "1"
