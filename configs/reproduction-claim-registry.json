@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "claims": [
     {
-      "claim_id": "REPRO-RQ1-IDENTITY",
+      "claim_id": "PAPER-RQ1-IDENTITY",
       "claim_text": "Compare proving, verification, peak memory, proof size, and modeled EVM cost near the paper's 20k identity size.",
       "evidence_class": "measured",
       "experiment_ids": [

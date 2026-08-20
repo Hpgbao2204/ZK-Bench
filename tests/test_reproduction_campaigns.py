@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -27,6 +28,19 @@ class PaperCampaignTests(unittest.TestCase):
                 for adapter in ("groth16", "plonk", "stark", "bulletproofs")
             },
         )
+
+    def test_workload_claim_ids_exist_in_registry(self) -> None:
+        matrix = MODULE.load_matrix()
+        registry = json.loads(
+            (REPO / "configs" / "reproduction-claim-registry.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        registered = {claim["claim_id"] for claim in registry["claims"]}
+        workload_claims = {
+            workload["claim_id"] for workload in matrix["workloads"].values()
+        }
+        self.assertLessEqual(workload_claims, registered)
 
     def test_state_campaign_reaches_one_million_native_units(self) -> None:
         config = MODULE.build_campaign(MODULE.load_matrix(), "state-groth16")
