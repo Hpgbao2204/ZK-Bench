@@ -15,7 +15,7 @@
       "variants": ["groth16", "plonk", "stark", "bulletproofs"],
       "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes"],
       "acceptance_rule": "Every adapter has ten valid 16384-native-unit observations, three wrong-public-input rejections, and a validated result bundle.",
-      "status": "implemented",
+      "status": "measured",
       "output_paths": [".local/reproductions/paper-scale/identity-*-final-v1"],
       "paper_destination": "time_comparison_error.png; economic_cost.png; memory_usage_comparison.png; proof_size_comparison.png"
     },
@@ -33,7 +33,7 @@
       "variants": ["groth16", "plonk", "stark", "bulletproofs"],
       "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "native throughput"],
       "acceptance_rule": "Every adapter has ten valid observations at all seven sizes, a small-scale invalid-proof rejection, and a validated result bundle.",
-      "status": "implemented",
+      "status": "measured",
       "output_paths": [".local/reproductions/paper-scale/state-*-final-v1"],
       "paper_destination": "scenario_prover_time.png; scenario_verifier_time.png; scenario_peak_memory.png; scenario_proof_size.png; prover_throughput.png"
     },
@@ -51,7 +51,7 @@
       "variants": ["groth16", "plonk", "stark", "bulletproofs"],
       "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "component profile"],
       "acceptance_rule": "Every adapter has ten valid 65536-native-unit observations, wrong-public-input rejection, and a validated result bundle.",
-      "status": "implemented",
+      "status": "measured",
       "output_paths": [".local/reproductions/paper-scale/pcas-*-final-v1"],
       "paper_destination": "circuit_constraint_breakdown.png; tradeoff_time_vs_gas.png"
     },
@@ -64,7 +64,7 @@
       "variants": ["groth16", "plonk", "stark"],
       "metrics": ["fixed_gas", "amortized_gas_per_application_unit", "modeled_cost_usd"],
       "acceptance_rule": "Every row names the model, consumes measured proof size, and remains separate from measured campaign CSVs.",
-      "status": "implemented",
+      "status": "reported",
       "output_paths": [".local/reproductions/paper-scale/gas/*.csv"],
       "paper_destination": "economic_cost.png; amortized_gas.png; tradeoff_time_vs_gas.png"
     },
@@ -77,7 +77,7 @@
       "variants": ["stark-in-snark"],
       "metrics": ["hybrid_prover_ms", "outer_verifier_gas", "break_even_outer_prover_ms"],
       "acceptance_rule": "The output is deterministic from explicit inner time and outer-wrapper assumptions and is never merged with measured rows.",
-      "status": "implemented",
+      "status": "reported",
       "output_paths": [".local/reproductions/paper-scale/models/hybrid.csv"],
       "paper_destination": "recursive-aware discussion; no empirical figure"
     }
