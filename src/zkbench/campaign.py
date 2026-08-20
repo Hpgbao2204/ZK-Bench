@@ -54,6 +54,10 @@ SUMMARY_FIELDS = [
     "median_peak_rss_mb",
     "median_page_faults",
     "proof_bytes",
+    "mean_proof_bytes",
+    "stdev_proof_bytes",
+    "p50_proof_bytes",
+    "p95_proof_bytes",
     "native_relation_size",
     "relation_unit",
     "public_inputs",
@@ -672,6 +676,7 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
             proof_sizes = {
                 row["proof_bytes"] for row in group if row["proof_bytes"] != ""
             }
+            proof_values = _nonboundary_values(group, "proof_bytes")
             relation_sizes = {
                 row["native_relation_size"]
                 for row in group
@@ -836,6 +841,24 @@ def write_campaign_summary(rows: list[dict[str, str]], path: Path) -> None:
                     ),
                     "proof_bytes": (
                         next(iter(proof_sizes)) if len(proof_sizes) == 1 else ""
+                    ),
+                    "mean_proof_bytes": metric(
+                        "mean_proof_bytes",
+                        statistics.mean(proof_values) if proof_values else None,
+                    ),
+                    "stdev_proof_bytes": metric(
+                        "stdev_proof_bytes",
+                        statistics.stdev(proof_values)
+                        if len(proof_values) > 1
+                        else None,
+                    ),
+                    "p50_proof_bytes": metric(
+                        "p50_proof_bytes",
+                        statistics.median(proof_values) if proof_values else None,
+                    ),
+                    "p95_proof_bytes": metric(
+                        "p95_proof_bytes",
+                        percentile(proof_values, 0.95) if proof_values else None,
                     ),
                     "native_relation_size": (
                         next(iter(relation_sizes))

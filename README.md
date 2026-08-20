@@ -25,8 +25,8 @@ Unsupported counters are left unavailable rather than encoded as numeric zero.
 | Jellyfish TurboPlonk 0.8.0 with KZG on BN254 | Controlled relation implemented | Controlled pilot validated |
 | Credential, batched-state, and private-swap workloads | Implemented for Groth16 | Final-candidate bundles published; paper claim freeze pending |
 | PLONK application relations | Implemented and unit-tested | Final-candidate bundles published; paper claim freeze pending |
-| Transparent/STARK adapter | Implemented as a Winterfell F128 exponentiation adapter | Build/pilot pending; no paper evidence yet |
-| Bulletproofs range-proof baseline | Implemented as a specialized Ristretto range adapter | Pilot config added; no measured evidence yet |
+| Transparent/STARK adapter | Implemented as a Winterfell F128 exponentiation adapter with `air_trace_cells` native sizing | Validated ten-repetition bundle retained locally and used by the local figure pipeline |
+| Bulletproofs range and controlled R1CS baselines | Implemented over vendored Bulletproofs 5.0.0/Ristretto255 | Range bundle published; validated ten-repetition controlled R1CS bundle retained locally and used by the local figure pipeline |
 | Arithmetic backend across curve families | Implemented as a standalone raw runner over BN254, BLS12-377, BLS12-381, BW6-761, Jubjub, and BabyJubjub | Build/pilot pending; no paper evidence yet |
 | Common exponentiation/SHA-256 circuit backend | Chained multiplication is shared across SNARK/STARK pilots; SHA-256 gadget implemented for Groth16 BN254 | SHA-256 pilot pending; no cross-family claim yet |
 | On-chain verifier measurements | Measurement scaffolding only | No measured gas bundle |
@@ -143,12 +143,9 @@ python scripts\release_guard.py --repo . --staged
 
 1. Freeze claim language and generate contribution-driven figures/tables from
    the published final-candidate bundles.
-2. Build the Bulletproofs range pilot from
-   \`configs/bulletproofs-range-pilot.json\` after the local dependency/build
-   permission is confirmed.
-3. Build the Winterfell transparent pilot from
-   \`configs/winterfell-stark-pilot.json\`, then run matched exponentiation
-   vectors against Groth16 and PLONK.
+2. Extend the application relations to additional proof-system adapters only
+   after their controlled relation, serialization, and invalid-proof paths pass.
+3. Measure pinned verifier gas before regenerating economic or Pareto panels.
 4. Run additional final campaigns only after every adapter passes correctness
    and semantic-scope gates.
 5. Replace the exploratory dot panels with contribution-driven heatmaps,
@@ -222,5 +219,6 @@ relation as the controlled SNARK pilots over Winterfell's F128 field. It
 records trace construction, proof generation, serialization, verification,
 and explicit unsupported setup/KZG/MSM phases. The adapter uses a transparent
 trace/AIR proof and therefore does not report a trusted-setup time as zero.
-The actual claims remain frozen until the user-run release build and pilot
-validator pass.
+The corrected ten-repetition bundle passed validation and is consumed by the
+local paper-figure pipeline. The older transition-expression-count bundle is
+retained only as legacy evidence.

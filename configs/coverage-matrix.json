@@ -43,7 +43,7 @@
       "family": "transparent_inner_product",
       "curve_or_field": "Ristretto255",
       "workloads": ["controlled_kernel", "private_swap_range_component"],
-      "status": "controlled_r1cs_and_range_pilots_pending",
+      "status": "controlled_r1cs_ten_run_validated_local_and_range_measured",
       "native_relation_unit": "r1cs_multipliers for controlled R1CS; range_bits for the specialized range proof",
       "phase_metrics": ["native_execution", "setup_or_preprocess", "commitment", "witness", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
       "unsupported_phases": ["fft_ntt", "msm", "key_load"]
@@ -53,7 +53,7 @@
       "family": "transparent_stark",
       "curve_or_field": "F128",
       "workloads": ["controlled_kernel"],
-      "status": "pilot_pending",
+      "status": "ten_run_validated_local",
       "native_relation_unit": "air_trace_cells",
       "phase_metrics": ["native_execution", "witness", "prove_total", "serialize", "deserialize", "verify_total", "invalid_reject"],
       "unsupported_phases": ["setup_or_preprocess", "key_load", "msm", "fft_ntt"]

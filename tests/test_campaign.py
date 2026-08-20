@@ -14,6 +14,7 @@ from zkbench.campaign import (  # noqa: E402
     _validate_executable_platform,
     run_adapter_campaign,
     validate_campaign_config,
+    write_campaign_summary,
 )
 
 
@@ -110,10 +111,52 @@ class CampaignTests(unittest.TestCase):
             all(row["native_relation_size"] == "8" for row in process_summary)
         )
         self.assertTrue(
+            all(row["mean_proof_bytes"] == "128.000000" for row in process_summary)
+        )
+        self.assertTrue(
+            all(row["p50_proof_bytes"] == "128.000000" for row in process_summary)
+        )
+        self.assertTrue(
             all(row["expected_outcomes"] != "unexpected-outcome-present" for row in summary)
         )
         self.assertEqual(environment["runner"], "adapter-process-campaign")
         self.assertEqual(len(environment["config_hash"]), 64)
+
+    def test_summary_aggregates_variable_proof_sizes(self) -> None:
+        local = REPO / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            output = Path(temp)
+            run_adapter_campaign(campaign_config(), output, repo=REPO)
+            with (output / "raw_results.csv").open(
+                newline="", encoding="utf-8"
+            ) as handle:
+                raw = list(csv.DictReader(handle))
+            selected = [
+                row
+                for row in raw
+                if row["recorded"] == "true"
+                and row["phase"] == "adapter_process_wall"
+                and row["threads"] == "1"
+                and not row["invalid_proof_kind"]
+            ]
+            self.assertEqual(len(selected), 3)
+            selected[0]["proof_bytes"] = "160"
+            derived = output / "derived-summary.csv"
+            write_campaign_summary(raw, derived)
+            with derived.open(newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+        row = next(
+            item
+            for item in rows
+            if item["phase"] == "adapter_process_wall"
+            and item["threads"] == "1"
+            and not item["invalid_proof_kind"]
+        )
+        self.assertEqual(row["proof_bytes"], "")
+        self.assertEqual(row["mean_proof_bytes"], "138.666667")
+        self.assertEqual(row["p50_proof_bytes"], "128.000000")
+        self.assertEqual(row["p95_proof_bytes"], "156.800000")
 
     def test_progress_reports_process_counts(self) -> None:
         messages: list[str] = []
