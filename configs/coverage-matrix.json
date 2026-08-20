@@ -42,10 +42,11 @@
       "adapter": "bulletproofs-5.0.0-ristretto",
       "family": "transparent_inner_product",
       "curve_or_field": "Ristretto255",
-      "workloads": ["private_swap_range_component"],
-      "status": "pilot_pending",
-      "phase_metrics": ["native_execution", "witness", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
-      "unsupported_phases": ["setup_or_preprocess", "fft_ntt", "msm", "commitment", "key_load"]
+      "workloads": ["controlled_kernel", "private_swap_range_component"],
+      "status": "controlled_r1cs_and_range_pilots_pending",
+      "native_relation_unit": "r1cs_multipliers for controlled R1CS; range_bits for the specialized range proof",
+      "phase_metrics": ["native_execution", "setup_or_preprocess", "commitment", "witness", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
+      "unsupported_phases": ["fft_ntt", "msm", "key_load"]
     },
     {
       "adapter": "winterfell-0.13.1-f128",

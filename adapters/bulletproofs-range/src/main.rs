@@ -10,6 +10,8 @@ use zkbench_adapter_sdk::{
     read_request_from_stdin,
 };
 
+mod r1cs;
+
 const ADAPTER: &str = "bulletproofs-5.0.0-ristretto";
 const RANGE_WORKLOAD: &str = "private_swap";
 
@@ -105,9 +107,14 @@ fn emit_unsupported(request: &AdapterRequest, phase: &str, reason: &str) -> Resu
 }
 
 fn run(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
+    if r1cs::supports(&request.workload) {
+        return r1cs::run(request);
+    }
     if request.workload != RANGE_WORKLOAD {
         return Err(format!(
-            "{ADAPTER} is a specialized range-proof baseline; expected {RANGE_WORKLOAD}"
+            "unsupported workload {}; expected {RANGE_WORKLOAD} or {}",
+            request.workload,
+            r1cs::CONTROLLED_WORKLOAD,
         )
         .into());
     }

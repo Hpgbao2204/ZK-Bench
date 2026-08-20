@@ -1,0 +1,50 @@
+{
+  "adapter": "bulletproofs-5.0.0-ristretto",
+  "campaign_kind": "adapter-process",
+  "claim_id": "C9-CIRCUIT-BACKEND",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-bulletproofs-range"
+  ],
+  "evidence_class": "measured",
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "experiment_id": "controlled-bulletproofs-r1cs-pilot-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "repetitions": 3,
+      "scales": [256, 4096],
+      "threads": [1]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 1,
+  "parallel_backend": "single-process Bulletproofs R1CS API",
+  "relation": {
+    "constraint_formula": "scale chained multiplication constraints",
+    "curve": "Ristretto255",
+    "native_relation_unit": "R1CS multipliers",
+    "private_inputs": [
+      "committed initial scalar"
+    ],
+    "public_inputs": [
+      "factor scalar",
+      "output scalar"
+    ],
+    "security_scope": "controlled Ristretto255 Bulletproofs R1CS implementation evidence",
+    "setup": "deterministically derived Bulletproof generators; no trusted ceremony"
+  },
+  "repetitions": 3,
+  "require_clean_git": true,
+  "result_scope": "controlled chained-multiplication comparison",
+  "sampling_interval_ms": 5,
+  "scales": [256, 1024, 4096],
+  "schema_version": "1.0",
+  "seed": 20260820,
+  "threads": [1],
+  "timeout_seconds": 600,
+  "variant": "bulletproofs-5.0.0-ristretto",
+  "workload": "controlled_kernel"
+}

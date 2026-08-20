@@ -9,7 +9,7 @@
       "public_inputs": ["factor", "output"],
       "scale_parameter": "multiplication steps",
       "required_metrics": ["constraint_count", "witness", "setup_or_preprocess", "prove_total", "verify_total", "proof_bytes", "peak_rss_mb", "parallel_speedup"],
-      "adapters": ["groth16_bn254", "groth16_bls12_381", "jellyfish_plonk_bn254", "winterfell_f128"]
+      "adapters": ["groth16_bn254", "groth16_bls12_381", "jellyfish_plonk_bn254", "winterfell_f128", "bulletproofs_ristretto_r1cs"]
     },
     {
       "id": "sha256",
