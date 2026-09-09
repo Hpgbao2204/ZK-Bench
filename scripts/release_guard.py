@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject staged paths that violate the public-artifact release boundary."""
+"""Reject added or updated paths outside the public-artifact boundary."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ PUBLIC_ROOT_FILES = {
     "Cargo.toml",
     "LICENSE",
     "README.md",
-    "README-CHECKPOINT.md",
     "pyproject.toml",
 }
 PUBLIC_DIRECTORIES = {
@@ -92,7 +91,7 @@ def staged_paths(repo: Path) -> list[str]:
             "diff",
             "--cached",
             "--name-only",
-            "--diff-filter=ACMRDTUXB",
+            "--diff-filter=ACMRTUXB",
             "-z",
         ],
         cwd=repo,
