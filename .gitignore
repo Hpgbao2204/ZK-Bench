@@ -12,7 +12,41 @@ __pycache__/
 *.key
 *.keystore
 *.secret
+*.pem
+*.p12
+*.pfx
+*.mnemonic
+.netrc
+.npmrc
+.pypirc
+credentials/
+secrets/
 
 # Paper-only analysis and visualisation stay local.
 plots/
 figures/
+images/
+media/
+
+# Generated visual and document artifacts stay local.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.tif
+*.tiff
+*.svg
+*.pdf
+*.eps
+*.ps
+*.ico
+
+# Plot and figure generator scripts stay local.
+**/plot_*.py
+**/*_plot.py
+**/*_plots.py
+**/*figure*.py
+**/*visualization*.py
+**/render_*image*.py
