@@ -31,29 +31,33 @@ def prover_ms(bundle_root: Path, adapter: str) -> float:
     return float(matches[0]["mean_latency_ms"])
 
 
-def outer_gas(gas_csv: Path, adapter: str) -> float:
+def outer_gas(gas_csv: Path, adapter: str, profile_id: str) -> float:
     rows = read_csv(gas_csv)
     matches = [
         row
         for row in rows
         if row["adapter"] == adapter
+        and row.get("profile_id", "") == profile_id
         and row["batch_size"] == "1"
         and row["gas_price_gwei"] == "20"
     ]
     if len(matches) != 1:
-        raise ValueError(f"missing outer gas row for {adapter}")
+        raise ValueError(f"missing outer gas row for {adapter} under {profile_id}")
     return float(matches[0]["fixed_gas"])
 
 
 def project(model: dict, bundle_root: Path, gas_csv: Path) -> list[dict[str, object]]:
     inner_ms = prover_ms(bundle_root, model["inner_adapter"])
     comparison_ms = prover_ms(bundle_root, model["comparison_adapter"])
-    verifier_gas = outer_gas(gas_csv, model["outer_adapter"])
+    verifier_gas = outer_gas(
+        gas_csv, model["outer_adapter"], model["gas_profile"]
+    )
     break_even = comparison_ms - inner_ms
     return [
         {
             "model_id": model["model_id"],
             "evidence_class": "modeled",
+            "gas_profile": model["gas_profile"],
             "measured_inner_stark_prover_ms": round(inner_ms, 6),
             "assumed_outer_wrapper_prover_ms": float(assumption),
             "hybrid_prover_ms": round(inner_ms + float(assumption), 6),

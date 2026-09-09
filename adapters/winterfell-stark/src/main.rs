@@ -12,7 +12,7 @@ use winterfell::{
 };
 use zkbench_adapter_sdk::{
     AdapterRequest, AdapterResult, PhaseEvent, PhaseTimer, SCHEMA_VERSION, emit, emit_result,
-    read_request_from_stdin,
+    read_request_from_stdin, write_proof_artifact,
 };
 
 const ADAPTER: &str = "winterfell-0.13.1-f128";
@@ -210,7 +210,11 @@ fn trace_rows(request: &AdapterRequest) -> Result<usize, String> {
     let scale_mode = request
         .parameters
         .get("scale_mode")
-        .map(|value| value.as_str().ok_or_else(|| "scale_mode must be a string".to_owned()))
+        .map(|value| {
+            value
+                .as_str()
+                .ok_or_else(|| "scale_mode must be a string".to_owned())
+        })
         .transpose()?
         .unwrap_or("application_units");
     if !matches!(scale_mode, "application_units" | "target_native_size") {
@@ -334,18 +338,16 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
         .unwrap_or(request.scale);
     let mut native_metrics = BTreeMap::from([
         ("application_units".to_owned(), application_units as f64),
-        ("air_trace_cells".to_owned(), native_relation_size(steps)? as f64),
+        (
+            "air_trace_cells".to_owned(),
+            native_relation_size(steps)? as f64,
+        ),
         ("relation_digest".to_owned(), factor.as_int() as f64),
     ]);
     if request.parameters.contains_key("target_native_size") {
         native_metrics.insert("target_native_size".to_owned(), steps as f64);
     }
-    measured(
-        request,
-        "native_execution",
-        native_timer,
-        native_metrics,
-    )?;
+    measured(request, "native_execution", native_timer, native_metrics)?;
 
     let witness_timer = PhaseTimer::start();
     let trace = build_trace(start, factor, steps);
@@ -379,6 +381,7 @@ fn run(request: &AdapterRequest) -> Result<(Proof, PublicInputs, usize, usize), 
         serialize_timer,
         BTreeMap::from([("proof_bytes".to_owned(), proof_bytes.len() as f64)]),
     )?;
+    write_proof_artifact(request, &proof_bytes)?;
     let deserialize_timer = PhaseTimer::start();
     let decoded = Proof::from_bytes(&proof_bytes)?;
     measured(
@@ -476,10 +479,7 @@ mod tests {
     fn trace_has_expected_relation() {
         let trace = build_trace(BaseElement::new(3), BaseElement::new(5), 16);
         assert_eq!(trace.length(), 16);
-        assert_eq!(
-            trace.get(0, 1),
-            trace.get(0, 0) * BaseElement::new(5)
-        );
+        assert_eq!(trace.get(0, 1), trace.get(0, 0) * BaseElement::new(5));
         assert_eq!(
             result_value(BaseElement::new(3), BaseElement::new(5), 16),
             trace.get(0, trace.length() - 1)
@@ -504,10 +504,7 @@ mod tests {
                 seed: 7,
                 mode: "cold".to_owned(),
                 invalid_case: None,
-                parameters: BTreeMap::from([(
-                    "target_native_size".to_owned(),
-                    256_u64.into(),
-                )]),
+                parameters: BTreeMap::from([("target_native_size".to_owned(), 256_u64.into())]),
             };
             assert_eq!(trace_rows(&request).unwrap(), 256);
             let (_, _, _, rows) = run(&request).unwrap();

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::fs;
 use std::io::{self, Read};
+use std::path::{Component, Path};
 use std::time::{Duration, Instant};
 
 pub const SCHEMA_VERSION: &str = "1.0";
@@ -217,9 +219,54 @@ pub fn emit_result(result: &AdapterResult) -> Result<(), String> {
     Ok(())
 }
 
+/// Persist a serialized proof for a dedicated publication-cost campaign.
+///
+/// Export is opt-in and restricted to a repository-local `.local/` path so
+/// adapter input cannot overwrite tracked files or write outside the project.
+pub fn write_proof_artifact(request: &AdapterRequest, proof_bytes: &[u8]) -> Result<(), String> {
+    let Some(raw_path) = std::env::var_os("ZKBENCH_PROOF_ARTIFACT_PATH") else {
+        return Ok(());
+    };
+    let raw_path = raw_path
+        .to_str()
+        .ok_or_else(|| "ZKBENCH_PROOF_ARTIFACT_PATH must be valid UTF-8".to_owned())?;
+    write_proof_artifact_to_path(request, proof_bytes, raw_path)
+}
+
+fn write_proof_artifact_to_path(
+    _request: &AdapterRequest,
+    proof_bytes: &[u8],
+    raw_path: &str,
+) -> Result<(), String> {
+    let path = Path::new(raw_path);
+    if path.is_absolute() {
+        return Err("proof_artifact_path must be repository-relative".to_owned());
+    }
+    let components: Vec<_> = path.components().collect();
+    if components.first() != Some(&Component::Normal(".local".as_ref()))
+        || components.iter().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+    {
+        return Err("proof_artifact_path must stay under .local/".to_owned());
+    }
+    if proof_bytes.len() <= 1 {
+        return Err("proof artifact must contain more than one byte".to_owned());
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create proof artifact directory: {error}"))?;
+    }
+    fs::write(path, proof_bytes).map_err(|error| format!("failed to write proof artifact: {error}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     fn request() -> AdapterRequest {
         AdapterRequest {
@@ -244,14 +291,12 @@ mod tests {
     #[test]
     fn request_accepts_sensitivity_parameters_and_rejects_numeric_boundaries() {
         let mut value = request();
-        value.parameters.insert(
-            "merkle_depth".to_owned(),
-            serde_json::Value::from(32_u64),
-        );
-        value.parameters.insert(
-            "ablation".to_owned(),
-            serde_json::Value::from("full"),
-        );
+        value
+            .parameters
+            .insert("merkle_depth".to_owned(), serde_json::Value::from(32_u64));
+        value
+            .parameters
+            .insert("ablation".to_owned(), serde_json::Value::from("full"));
         value.parameters.insert(
             "membership_enabled".to_owned(),
             serde_json::Value::from(true),
@@ -309,5 +354,26 @@ mod tests {
         let json = result.to_json_line().unwrap();
         assert!(json.contains("\"verify_ok\":true"));
         assert!(!json.contains("\"verify_ok\":1"));
+    }
+
+    #[test]
+    fn proof_artifact_path_must_be_local() {
+        let value = request();
+        assert!(write_proof_artifact_to_path(&value, &[2, 3], "outside/proof.bin").is_err());
+
+        assert!(write_proof_artifact_to_path(&value, &[2, 3], ".local/../proof.bin").is_err());
+    }
+
+    #[test]
+    fn proof_artifact_is_written_under_local() {
+        let value = request();
+        let path = PathBuf::from(format!(
+            ".local/sdk-test-proof-{}-{}.bin",
+            std::process::id(),
+            value.seed
+        ));
+        write_proof_artifact_to_path(&value, &[2, 3, 4], &path.to_string_lossy()).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), vec![2, 3, 4]);
+        fs::remove_file(path).unwrap();
     }
 }

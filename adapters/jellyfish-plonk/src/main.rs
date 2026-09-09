@@ -2,24 +2,17 @@ use ark_bls12_381_jf::{Bls12_381, Fr};
 use ark_ff_jf::Field;
 use ark_serialize_jf::{CanonicalDeserialize, CanonicalSerialize};
 use jf_plonk::{
-    proof_system::{
-        PlonkKzgSnark, UniversalSNARK, structs::Proof,
-    },
+    proof_system::{PlonkKzgSnark, UniversalSNARK, structs::Proof},
     transcript::StandardTranscript,
 };
 use jf_relation::{Arithmetization, Circuit, PlonkCircuit};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use rayon::ThreadPoolBuilder;
-use std::{
-    collections::BTreeMap,
-    error::Error,
-    sync::OnceLock,
-    time::Duration,
-};
+use std::{collections::BTreeMap, error::Error, sync::OnceLock, time::Duration};
 use zkbench_adapter_sdk::{
-    AdapterRequest, AdapterResult, PhaseEvent, PhaseTimer, SCHEMA_VERSION,
-    emit, emit_result, read_request_from_stdin,
+    AdapterRequest, AdapterResult, PhaseEvent, PhaseTimer, SCHEMA_VERSION, emit, emit_result,
+    read_request_from_stdin, write_proof_artifact,
 };
 
 mod relations;
@@ -87,9 +80,7 @@ fn measured_event(
 fn unsupported_events(request: &AdapterRequest) -> Result<(), String> {
     let reason = "Jellyfish exposes no stable per-proof hook for this phase";
     for phase in ["fft_ntt", "msm", "commitment", "key_load"] {
-        emit(&PhaseEvent::unsupported(
-            request, ADAPTER, phase, reason,
-        ))?;
+        emit(&PhaseEvent::unsupported(request, ADAPTER, phase, reason))?;
     }
     Ok(())
 }
@@ -104,9 +95,7 @@ fn values(request: &AdapterRequest) -> (Fr, Fr, Fr) {
     (initial, factor, output)
 }
 
-fn build_controlled_circuit(
-    request: &AdapterRequest,
-) -> Result<CircuitBundle, Box<dyn Error>> {
+fn build_controlled_circuit(request: &AdapterRequest) -> Result<CircuitBundle, Box<dyn Error>> {
     if !request.parameters.is_empty() {
         return Err("controlled_kernel does not accept workload parameters".into());
     }
@@ -180,20 +169,12 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
             relations::relation_digest(request)?,
         );
     }
-    measured_event(
-        request,
-        "native_execution",
-        &native_timer,
-        native_metrics,
-    )?;
+    measured_event(request, "native_execution", &native_timer, native_metrics)?;
 
     let witness_timer = PhaseTimer::start();
     let controlled = build_circuit(request)?;
     let mut witness_metrics = BTreeMap::from([
-        (
-            "application_units".to_owned(),
-            request.scale as f64,
-        ),
+        ("application_units".to_owned(), request.scale as f64),
         (
             "plonk_logical_gates".to_owned(),
             controlled.logical_gates as f64,
@@ -202,42 +183,34 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
             "plonk_domain_rows".to_owned(),
             controlled.domain_rows as f64,
         ),
-        (
-            "plonk_variables".to_owned(),
-            controlled.variables as f64,
-        ),
+        ("plonk_variables".to_owned(), controlled.variables as f64),
     ]);
     witness_metrics.extend(controlled.profile.clone());
-    measured_duration(
-        request,
-        "witness",
-        witness_timer.elapsed(),
-        witness_metrics,
-    )?;
+    measured_duration(request, "witness", witness_timer.elapsed(), witness_metrics)?;
 
     let setup_timer = PhaseTimer::start();
     let srs_size = controlled.circuit.srs_size()?;
-    let mut setup_rng =
-        ChaCha20Rng::seed_from_u64(request.seed ^ 0xA11C_E5E7);
+    let mut setup_rng = ChaCha20Rng::seed_from_u64(request.seed ^ 0xA11C_E5E7);
     let srs = <Snark as UniversalSNARK<Bls12_381>>::universal_setup_for_testing(
         srs_size,
         &mut setup_rng,
     )?;
-    let (proving_key, verifying_key) =
-        Snark::preprocess(&srs, &controlled.circuit)?;
+    let (proving_key, verifying_key) = Snark::preprocess(&srs, &controlled.circuit)?;
     measured_event(
         request,
         "setup_or_preprocess",
         &setup_timer,
         BTreeMap::from([
-            ("plonk_domain_rows".to_owned(), controlled.domain_rows as f64),
+            (
+                "plonk_domain_rows".to_owned(),
+                controlled.domain_rows as f64,
+            ),
             ("srs_size".to_owned(), srs_size as f64),
         ]),
     )?;
 
     let prove_timer = PhaseTimer::start();
-    let mut proof_rng =
-        ChaCha20Rng::seed_from_u64(request.seed ^ 0xBADC_0FFE);
+    let mut proof_rng = ChaCha20Rng::seed_from_u64(request.seed ^ 0xBADC_0FFE);
     let proof = Snark::prove::<_, _, StandardTranscript>(
         &mut proof_rng,
         &controlled.circuit,
@@ -261,16 +234,13 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
         request,
         "serialize",
         &serialize_timer,
-        BTreeMap::from([(
-            "proof_bytes".to_owned(),
-            proof_buffer.len() as f64,
-        )]),
+        BTreeMap::from([("proof_bytes".to_owned(), proof_buffer.len() as f64)]),
     )?;
+    write_proof_artifact(request, &proof_buffer)?;
 
     let verify_total_timer = PhaseTimer::start();
     let deserialize_timer = PhaseTimer::start();
-    let decoded =
-        Proof::<Bls12_381>::deserialize_compressed(proof_buffer.as_slice())?;
+    let decoded = Proof::<Bls12_381>::deserialize_compressed(proof_buffer.as_slice())?;
     let deserialize_elapsed = deserialize_timer.elapsed();
     let mut public_inputs = controlled.public_inputs;
     if request.invalid_case.as_deref() == Some("wrong_public_input") {
@@ -286,32 +256,24 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
         .into());
     }
     let verify_core_timer = PhaseTimer::start();
-    let verify_ok = Snark::verify::<StandardTranscript>(
-        &verifying_key,
-        &public_inputs,
-        &decoded,
-        None,
-    )
-    .is_ok();
+    let verify_ok =
+        Snark::verify::<StandardTranscript>(&verifying_key, &public_inputs, &decoded, None).is_ok();
     let verify_core_elapsed = verify_core_timer.elapsed();
     let verify_total_elapsed = verify_total_timer.elapsed();
     measured_duration(
         request,
         "deserialize",
         deserialize_elapsed,
-        BTreeMap::from([(
-            "proof_bytes".to_owned(),
-            proof_buffer.len() as f64,
-        )]),
+        BTreeMap::from([("proof_bytes".to_owned(), proof_buffer.len() as f64)]),
     )?;
-    measured_duration(
-        request,
-        "verify_core",
-        verify_core_elapsed,
-        BTreeMap::new(),
-    )?;
+    measured_duration(request, "verify_core", verify_core_elapsed, BTreeMap::new())?;
     if request.invalid_case.is_some() {
-        measured_duration(request, "invalid_reject", verify_core_elapsed, BTreeMap::new())?;
+        measured_duration(
+            request,
+            "invalid_reject",
+            verify_core_elapsed,
+            BTreeMap::new(),
+        )?;
     }
     measured_duration(
         request,
@@ -392,8 +354,7 @@ mod tests {
         assert!(valid.proof_bytes > 1);
         let mut invalid_request = request();
         invalid_request.run_id = "plonk-invalid".to_owned();
-        invalid_request.invalid_case =
-            Some("wrong_public_input".to_owned());
+        invalid_request.invalid_case = Some("wrong_public_input".to_owned());
         assert!(!run(&invalid_request).unwrap().verify_ok);
     }
 

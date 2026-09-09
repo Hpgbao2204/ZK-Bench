@@ -1,23 +1,128 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "evidence_class": "modeled",
-  "model_id": "reproduction-evm-gas-v1",
-  "evm_fork": "Istanbul-compatible alt_bn128 and EIP-2028 calldata schedule",
+  "model_id": "reproduction-evm-gas-v2",
+  "primary_profile": "pectra-bls12-381",
   "transaction_intrinsic_gas": 21000,
-  "nonzero_calldata_gas_per_byte": 16,
-  "zero_calldata_gas_per_byte": 4,
   "assumed_nonzero_fraction": 1.0,
+  "public_input_bytes": 32,
   "residual_batch_gas_per_application_unit": 50,
-  "verifier_compute_gas": {
-    "groth16": 154000,
-    "plonk": 260000,
-    "stark": 2000000
+  "public_inputs_by_workload": {
+    "identity": 2,
+    "state": 3,
+    "pcas": 7
+  },
+  "profiles": {
+    "legacy-bn254": {
+      "role": "legacy",
+      "label": "Legacy BN254 / EIP-1108",
+      "evm_fork": "Istanbul-compatible EIP-1108 and EIP-2028",
+      "security_bits": "approximately 80",
+      "calldata_pricing": {
+        "mode": "eip2028",
+        "zero_byte_gas": 4,
+        "nonzero_byte_gas": 16
+      },
+      "precompile_schedule": {
+        "g1_add_gas": 150,
+        "g1_mul_gas": 6000,
+        "pairing_base_gas": 45000,
+        "pairing_per_pair_gas": 34000
+      },
+      "adapters": {
+        "groth16": {
+          "curve": "BN254",
+          "proof_calldata_bytes": 256,
+          "verifier_model": {
+            "kind": "bn254-groth16",
+            "pairing_pairs": 4
+          }
+        },
+        "plonk": {
+          "curve": "BN254",
+          "proof_calldata_bytes": 1152,
+          "verifier_model": {
+            "kind": "bn254-plonk",
+            "pairing_pairs": 2,
+            "g1_msm_terms": [2, 32]
+          }
+        },
+        "stark": {
+          "curve": "hash-based",
+          "proof_calldata_bytes": "measured",
+          "verifier_model": {
+            "kind": "fixed",
+            "gas": 2000000
+          }
+        }
+      }
+    },
+    "pectra-bls12-381": {
+      "role": "primary",
+      "label": "Pectra BLS12-381 / EIP-2537",
+      "evm_fork": "Pectra/Isthmus-compatible EIP-2537 and EIP-7623",
+      "security_bits": "120+",
+      "calldata_pricing": {
+        "mode": "eip7623",
+        "standard_token_cost": 4,
+        "total_cost_floor_per_token": 10
+      },
+      "precompile_schedule": {
+        "g1_mul_gas": 12000,
+        "pairing_base_gas": 37700,
+        "pairing_per_pair_gas": 32600,
+        "g1_msm_discounts_per_mille": {
+          "1": 1000,
+          "2": 949,
+          "3": 848,
+          "4": 797,
+          "8": 728,
+          "32": 627
+        }
+      },
+      "adapters": {
+        "groth16": {
+          "curve": "BLS12-381",
+          "proof_calldata_bytes": 512,
+          "verifier_model": {
+            "kind": "eip2537-groth16",
+            "pairing_pairs": 4,
+            "public_input_msm_offset": 1
+          }
+        },
+        "plonk": {
+          "curve": "BLS12-381",
+          "proof_calldata_bytes": 1984,
+          "verifier_model": {
+            "kind": "eip2537-plonk",
+            "pairing_pairs": 2,
+            "g1_msm_terms": [2, 32]
+          }
+        },
+        "stark": {
+          "curve": "hash-based",
+          "proof_calldata_bytes": "measured",
+          "verifier_model": {
+            "kind": "fixed",
+            "gas": 2000000
+          }
+        }
+      }
+    }
   },
   "gas_prices_gwei": [5, 20, 100],
   "eth_usd": 3500,
   "eth_usd_as_of": "2025-08-06",
   "batch_sizes": [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096],
+  "model_scope": "Precompile-core verifier operations plus transaction intrinsic gas, public inputs, proof calldata, and fork-specific calldata pricing. Scalar-field transcript and verifier-wrapper overhead outside the listed precompiles are excluded.",
+  "sources": {
+    "eip1108": "https://eips.ethereum.org/EIPS/eip-1108",
+    "eip2028": "https://eips.ethereum.org/EIPS/eip-2028",
+    "eip2537": "https://eips.ethereum.org/EIPS/eip-2537",
+    "eip7623": "https://eips.ethereum.org/EIPS/eip-7623",
+    "base_isthmus": "https://docs.base.org/upgrades/isthmus/overview"
+  },
   "excluded_adapters": {
-    "bulletproofs": "No EVM verifier is implemented; the paper excludes Bulletproofs from direct gas comparison"
+    "bulletproofs": "No EVM verifier is implemented; the paper excludes Bulletproofs from direct verifier-gas comparison"
   }
 }

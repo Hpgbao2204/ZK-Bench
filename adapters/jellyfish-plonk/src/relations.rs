@@ -28,7 +28,11 @@ impl RelationParameters {
         let scale_mode = request
             .parameters
             .get("scale_mode")
-            .map(|value| value.as_str().ok_or_else(|| "scale_mode must be a string".to_owned()))
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| "scale_mode must be a string".to_owned())
+            })
             .transpose()?
             .unwrap_or("application_units");
         if !matches!(scale_mode, "application_units" | "target_native_size") {
@@ -47,11 +51,7 @@ impl RelationParameters {
             .to_owned();
         if !matches!(
             ablation.as_str(),
-            "full"
-                | "no_membership"
-                | "no_range"
-                | "no_price"
-                | "no_authorization"
+            "full" | "no_membership" | "no_range" | "no_price" | "no_authorization"
         ) {
             return Err(format!("unsupported ablation: {ablation}"));
         }
@@ -136,11 +136,7 @@ fn numeric_parameter(
     usize::try_from(value).map_err(|_| format!("{name} does not fit usize"))
 }
 
-fn bit_parameter(
-    request: &AdapterRequest,
-    name: &str,
-    default: usize,
-) -> Result<usize, String> {
+fn bit_parameter(request: &AdapterRequest, name: &str, default: usize) -> Result<usize, String> {
     let value = numeric_parameter(request, name, default)?;
     if value > 64 {
         return Err(format!("{name} must not exceed 64 bits"));
@@ -149,7 +145,10 @@ fn bit_parameter(
 }
 
 fn application_scale(request: &AdapterRequest) -> Result<usize, Box<dyn Error>> {
-    if request.parameters.get("scale_mode").and_then(|value| value.as_str())
+    if request
+        .parameters
+        .get("scale_mode")
+        .and_then(|value| value.as_str())
         == Some("target_native_size")
     {
         Ok(numeric_parameter(request, "application_units", 2)?)
@@ -205,17 +204,11 @@ fn hash_gadget(
     Ok(state)
 }
 
-fn witness(
-    circuit: &mut PlonkCircuit<Fr>,
-    value: Fr,
-) -> Result<Variable, Box<dyn Error>> {
+fn witness(circuit: &mut PlonkCircuit<Fr>, value: Fr) -> Result<Variable, Box<dyn Error>> {
     Ok(circuit.create_variable(value)?)
 }
 
-fn public_input(
-    circuit: &mut PlonkCircuit<Fr>,
-    value: Fr,
-) -> Result<Variable, Box<dyn Error>> {
+fn public_input(circuit: &mut PlonkCircuit<Fr>, value: Fr) -> Result<Variable, Box<dyn Error>> {
     Ok(circuit.create_public_variable(value)?)
 }
 
@@ -229,10 +222,7 @@ fn bounded_witness(
     Ok(variable)
 }
 
-fn enforce_true(
-    circuit: &mut PlonkCircuit<Fr>,
-    value: bool,
-) -> Result<BoolVar, Box<dyn Error>> {
+fn enforce_true(circuit: &mut PlonkCircuit<Fr>, value: bool) -> Result<BoolVar, Box<dyn Error>> {
     let variable = circuit.create_boolean_variable(value)?;
     circuit.enforce_true(variable.into())?;
     Ok(variable)
@@ -261,30 +251,18 @@ fn swap_values(seed: u64, index: usize) -> (u64, u64, u64) {
     (amount_a, amount_b, secret)
 }
 
-fn credential_public_inputs(
-    seed: u64,
-    scale: usize,
-    parameters: &RelationParameters,
-) -> Vec<Fr> {
+fn credential_public_inputs(seed: u64, scale: usize, parameters: &RelationParameters) -> Vec<Fr> {
     let mut aggregate = Fr::from(23_u64);
     for index in 0..scale {
         let (age, subject, nonce) = credential_values(seed, index);
-        let identity = hash_native(
-            Fr::from(subject),
-            Fr::from(nonce),
-            parameters.hash_rounds,
-        );
+        let identity = hash_native(Fr::from(subject), Fr::from(nonce), parameters.hash_rounds);
         let commitment = hash_native(identity, Fr::from(age), parameters.hash_rounds);
         aggregate = hash_native(aggregate, commitment, parameters.hash_rounds);
     }
     vec![Fr::from(18_u64), aggregate]
 }
 
-fn state_public_inputs(
-    seed: u64,
-    scale: usize,
-    parameters: &RelationParameters,
-) -> Vec<Fr> {
+fn state_public_inputs(seed: u64, scale: usize, parameters: &RelationParameters) -> Vec<Fr> {
     let initial = Fr::from(seed.wrapping_add(29));
     let mut state = initial;
     let mut digest = Fr::from(31_u64);
@@ -297,11 +275,7 @@ fn state_public_inputs(
     vec![initial, state, digest]
 }
 
-fn swap_public_inputs(
-    seed: u64,
-    scale: usize,
-    parameters: &RelationParameters,
-) -> Vec<Fr> {
+fn swap_public_inputs(seed: u64, scale: usize, parameters: &RelationParameters) -> Vec<Fr> {
     let price_num = Fr::from(3_u64);
     let price_den = Fr::from(2_u64);
     let current_time = Fr::from(10_000_u64);
@@ -311,16 +285,8 @@ fn swap_public_inputs(
     let mut root_aggregate = Fr::from(41_u64);
     for index in 0..scale {
         let (amount_a, amount_b, secret) = swap_values(seed, index);
-        let hashlock = hash_native(
-            Fr::from(secret),
-            domain,
-            parameters.hash_rounds,
-        );
-        hashlock_aggregate = hash_native(
-            hashlock_aggregate,
-            hashlock,
-            parameters.hash_rounds,
-        );
+        let hashlock = hash_native(Fr::from(secret), domain, parameters.hash_rounds);
+        hashlock_aggregate = hash_native(hashlock_aggregate, hashlock, parameters.hash_rounds);
         if parameters.membership_enabled() {
             let leaf = hash_native(
                 Fr::from(amount_a),
@@ -328,29 +294,21 @@ fn swap_public_inputs(
                 parameters.hash_rounds,
             );
             for path in 0..parameters.membership_paths {
-                let mut node = hash_native(
-                    leaf,
-                    Fr::from((path as u64) + 2),
-                    parameters.hash_rounds,
-                );
+                let mut node =
+                    hash_native(leaf, Fr::from((path as u64) + 2), parameters.hash_rounds);
                 for level in 0..parameters.merkle_depth {
                     let sibling = Fr::from(
                         seed.wrapping_add((index * 101 + path * 17 + level) as u64)
                             .wrapping_add(607),
                     );
-                    let direction =
-                        ((seed + index as u64 + path as u64 + level as u64) & 1) == 1;
+                    let direction = ((seed + index as u64 + path as u64 + level as u64) & 1) == 1;
                     node = if direction {
                         hash_native(sibling, node, parameters.hash_rounds)
                     } else {
                         hash_native(node, sibling, parameters.hash_rounds)
                     };
                 }
-                root_aggregate = hash_native(
-                    root_aggregate,
-                    node,
-                    parameters.hash_rounds,
-                );
+                root_aggregate = hash_native(root_aggregate, node, parameters.hash_rounds);
             }
         }
     }
@@ -368,16 +326,10 @@ fn swap_public_inputs(
     inputs
 }
 
-fn credential_profile(
-    scale: usize,
-    parameters: &RelationParameters,
-) -> BTreeMap<String, f64> {
+fn credential_profile(scale: usize, parameters: &RelationParameters) -> BTreeMap<String, f64> {
     BTreeMap::from([
         ("application_units".to_owned(), scale as f64),
-        (
-            "hash_invocations".to_owned(),
-            (3 * scale) as f64,
-        ),
+        ("hash_invocations".to_owned(), (3 * scale) as f64),
         (
             "range_bits_total".to_owned(),
             (2 * parameters.age_bits * scale) as f64,
@@ -386,10 +338,7 @@ fn credential_profile(
     ])
 }
 
-fn state_profile(
-    scale: usize,
-    parameters: &RelationParameters,
-) -> BTreeMap<String, f64> {
+fn state_profile(scale: usize, parameters: &RelationParameters) -> BTreeMap<String, f64> {
     BTreeMap::from([
         ("application_units".to_owned(), scale as f64),
         ("hash_invocations".to_owned(), (2 * scale) as f64),
@@ -401,10 +350,7 @@ fn state_profile(
     ])
 }
 
-fn swap_profile(
-    scale: usize,
-    parameters: &RelationParameters,
-) -> BTreeMap<String, f64> {
+fn swap_profile(scale: usize, parameters: &RelationParameters) -> BTreeMap<String, f64> {
     let mut profile = BTreeMap::from([
         ("application_units".to_owned(), scale as f64),
         ("hash_rounds".to_owned(), parameters.hash_rounds as f64),
@@ -415,9 +361,7 @@ fn swap_profile(
         range_bits += 2 * parameters.range_bits * scale;
     }
     if parameters.membership_enabled() {
-        hash_invocations += scale
-            * parameters.membership_paths
-            * (parameters.merkle_depth + 2);
+        hash_invocations += scale * parameters.membership_paths * (parameters.merkle_depth + 2);
         profile.insert("merkle_depth".to_owned(), parameters.merkle_depth as f64);
         profile.insert(
             "membership_paths".to_owned(),
@@ -464,11 +408,7 @@ fn synthesize_credential(
     for index in 0..scale {
         let (age_value, subject_value, nonce_value) = credential_values(seed, index);
         let age = bounded_witness(circuit, age_value, parameters.age_bits)?;
-        let age_delta = bounded_witness(
-            circuit,
-            age_value - 18,
-            parameters.age_bits,
-        )?;
+        let age_delta = bounded_witness(circuit, age_value - 18, parameters.age_bits)?;
         let age_expected = circuit.add(min_age, age_delta)?;
         circuit.enforce_equal(age, age_expected)?;
         let subject = witness(circuit, Fr::from(subject_value))?;
@@ -560,12 +500,7 @@ fn synthesize_swap(
             let _authorized = enforce_true(circuit, true)?;
         }
         if parameters.membership_enabled() {
-            let leaf = hash_gadget(
-                circuit,
-                amount_a,
-                amount_b,
-                parameters.hash_rounds,
-            )?;
+            let leaf = hash_gadget(circuit, amount_a, amount_b, parameters.hash_rounds)?;
             for path in 0..parameters.membership_paths {
                 let path_tag = circuit.create_constant_variable(Fr::from((path as u64) + 2))?;
                 let mut node = hash_gadget(circuit, leaf, path_tag, parameters.hash_rounds)?;
@@ -581,12 +516,8 @@ fn synthesize_swap(
                     let right = circuit.conditional_select(direction, sibling, node)?;
                     node = hash_gadget(circuit, left, right, parameters.hash_rounds)?;
                 }
-                root_aggregate = hash_gadget(
-                    circuit,
-                    root_aggregate,
-                    node,
-                    parameters.hash_rounds,
-                )?;
+                root_aggregate =
+                    hash_gadget(circuit, root_aggregate, node, parameters.hash_rounds)?;
             }
         }
     }
@@ -770,10 +701,16 @@ mod tests {
     #[test]
     fn relation_digest_is_stable_for_shared_fixture() {
         let value = request(CREDENTIAL);
-        assert_eq!(relation_digest(&value).unwrap(), relation_digest(&value).unwrap());
+        assert_eq!(
+            relation_digest(&value).unwrap(),
+            relation_digest(&value).unwrap()
+        );
         let mut changed = value.clone();
         changed.seed += 2;
-        assert_ne!(relation_digest(&value).unwrap(), relation_digest(&changed).unwrap());
+        assert_ne!(
+            relation_digest(&value).unwrap(),
+            relation_digest(&changed).unwrap()
+        );
     }
 
     #[test]

@@ -42,11 +42,12 @@ class HybridProjectionTests(unittest.TestCase):
             with gas.open("w", newline="", encoding="utf-8") as handle:
                 writer = csv.DictWriter(
                     handle,
-                    fieldnames=("adapter", "batch_size", "gas_price_gwei", "fixed_gas"),
+                    fieldnames=("profile_id", "adapter", "batch_size", "gas_price_gwei", "fixed_gas"),
                 )
                 writer.writeheader()
                 writer.writerow(
                     {
+                        "profile_id": "pectra-bls12-381",
                         "adapter": "groth16",
                         "batch_size": 1,
                         "gas_price_gwei": 20,
@@ -57,6 +58,7 @@ class HybridProjectionTests(unittest.TestCase):
                 "model_id": "hybrid-test",
                 "inner_adapter": "stark",
                 "outer_adapter": "groth16",
+                "gas_profile": "pectra-bls12-381",
                 "comparison_adapter": "plonk",
                 "outer_prover_assumptions_ms": [800, 7000],
             }

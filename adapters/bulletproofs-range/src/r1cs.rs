@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use zkbench_adapter_sdk::{
     AdapterRequest, AdapterResult, PhaseEvent, PhaseTimer, SCHEMA_VERSION, emit, emit_result,
+    write_proof_artifact,
 };
 
 use crate::{ADAPTER, seed_bytes, verification_error_type};
@@ -24,7 +25,11 @@ struct ChainInstance {
     output: Scalar,
 }
 
-fn numeric_parameter(request: &AdapterRequest, name: &str, default: usize) -> Result<usize, String> {
+fn numeric_parameter(
+    request: &AdapterRequest,
+    name: &str,
+    default: usize,
+) -> Result<usize, String> {
     let value = request
         .parameters
         .get(name)
@@ -42,7 +47,10 @@ fn numeric_parameter(request: &AdapterRequest, name: &str, default: usize) -> Re
 }
 
 fn relation_steps(request: &AdapterRequest) -> Result<usize, String> {
-    if request.parameters.get("scale_mode").and_then(|value| value.as_str())
+    if request
+        .parameters
+        .get("scale_mode")
+        .and_then(|value| value.as_str())
         == Some("target_native_size")
     {
         return usize::try_from(request.scale).map_err(|_| "scale does not fit usize".to_owned());
@@ -75,9 +83,8 @@ fn relation_steps(request: &AdapterRequest) -> Result<usize, String> {
             let time = numeric_parameter(request, "time_bits", 32)?;
             let paths = numeric_parameter(request, "membership_paths", 2)?;
             let depth = numeric_parameter(request, "merkle_depth", 32)?;
-            let hashes = (2 + paths * (depth + 2))
-                * 3
-                * numeric_parameter(request, "hash_rounds", 5)?;
+            let hashes =
+                (2 + paths * (depth + 2)) * 3 * numeric_parameter(request, "hash_rounds", 5)?;
             range + time + hashes + 8
         }
         _ => return Err(format!("unsupported R1CS workload: {}", request.workload)),
@@ -272,6 +279,7 @@ pub fn run(request: &AdapterRequest) -> Result<(), Box<dyn Error>> {
         serialize_timer.elapsed(),
         BTreeMap::from([("proof_bytes".to_owned(), proof_bytes.len() as f64)]),
     )?)?;
+    write_proof_artifact(request, &proof_bytes)?;
 
     let deserialize_timer = PhaseTimer::start();
     let decoded_proof = R1CSProof::from_bytes(&proof_bytes)?;

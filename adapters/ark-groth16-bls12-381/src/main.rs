@@ -12,7 +12,7 @@ use std::error::Error;
 use std::sync::OnceLock;
 use zkbench_adapter_sdk::{
     AdapterRequest, AdapterResult, PhaseEvent, PhaseTimer, SCHEMA_VERSION, emit, emit_result,
-    read_request_from_stdin,
+    read_request_from_stdin, write_proof_artifact,
 };
 
 #[path = "../../ark-groth16/src/relations.rs"]
@@ -241,6 +241,7 @@ fn run(request: &AdapterRequest) -> Result<(bool, usize, usize, usize), Box<dyn 
         serialize_timer.elapsed(),
         BTreeMap::from([("proof_bytes".to_owned(), proof_buffer.len() as f64)]),
     )?)?;
+    write_proof_artifact(request, &proof_buffer)?;
 
     let verify_total_timer = PhaseTimer::start();
     let deserialize_timer = PhaseTimer::start();

@@ -80,6 +80,19 @@
       "status": "reported",
       "output_paths": [".local/reproductions/paper-scale/models/hybrid.csv"],
       "paper_destination": "recursive-aware discussion; no empirical figure"
+    },
+    {
+      "claim_id": "PAPER-BASE-SEPOLIA-PUBLICATION",
+      "claim_text": "Measure the Base Sepolia receipt cost of publishing each serialized identity proof as transaction calldata without claiming EVM cryptographic verification.",
+      "evidence_class": "measured",
+      "experiment_ids": ["base-sepolia-identity-proof-publication-v1"],
+      "workload": "credential",
+      "variants": ["groth16", "plonk", "stark", "bulletproofs"],
+      "metrics": ["gas_used", "l2_execution_fee_wei", "l1_fee_wei", "total_paid_wei", "receipt_latency_ms"],
+      "acceptance_rule": "Every system has ten successful Base Sepolia receipts on chain 84532, a stable verified proof artifact hash, unique transaction hashes, matching receipt-component and wallet-balance fees, and a validated transaction-budget cap.",
+      "status": "measured",
+      "output_paths": [".local/reproductions/base-sepolia/identity-publication-final-v1"],
+      "paper_destination": "caption_1a.pdf through caption_1d.pdf; exact-value table kept separate from verifier-gas figures"
     }
   ]
 }

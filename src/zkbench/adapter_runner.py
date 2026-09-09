@@ -6,7 +6,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from .adapter_protocol import (
     COARSE_PHASES,
@@ -151,6 +151,7 @@ def execute_adapter(
     *,
     timeout_seconds: float = 300.0,
     sampling_interval_ms: float = 10.0,
+    environment: Mapping[str, str] | None = None,
 ) -> AdapterExecution:
     request.validate()
     if not command:
@@ -168,6 +169,7 @@ def execute_adapter(
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
+        env=None if environment is None else dict(environment),
     )
     provider = default_process_counter_provider()
     accumulator = _CounterAccumulator(sampling_interval_ms)

@@ -12,6 +12,12 @@ from zkbench.chain import (  # noqa: E402
     parse_chain_id,
     require_base_sepolia,
 )
+from zkbench.base_sepolia import (  # noqa: E402
+    Artifact,
+    quantity,
+    reserve_transaction,
+    transaction_row,
+)
 
 
 class ChainTests(unittest.TestCase):
@@ -40,6 +46,42 @@ class ChainTests(unittest.TestCase):
         budget.reserve(5_000)
         with self.assertRaisesRegex(RuntimeError, "transaction-count"):
             budget.reserve(500)
+
+    def test_hex_quantity_and_publication_receipt(self) -> None:
+        self.assertEqual(quantity("0x5208"), 21_000)
+        artifact = Artifact("groth16", Path("proof.bin"), b"proof", "abc")
+        row = transaction_row(
+            artifact=artifact,
+            repetition=2,
+            receipt={
+                "transactionHash": "0x1234",
+                "blockNumber": "0x10",
+                "status": "0x1",
+                "gasUsed": "0x5208",
+                "effectiveGasPrice": "0x64",
+                "l1Fee": "0x32",
+            },
+            submitted_at="2026-08-20T00:00:00+00:00",
+            receipt_latency_ms=250.0,
+            balance_before_wei=10_000_000,
+            balance_after_wei=7_899_950,
+        )
+        self.assertEqual(row["l2_execution_fee_wei"], 2_100_000)
+        self.assertEqual(row["l1_fee_wei"], 50)
+        self.assertEqual(row["receipt_total_fee_wei"], 2_100_050)
+        self.assertEqual(row["total_paid_wei_balance_delta"], 2_100_050)
+        self.assertIn("no_evm_verification", row["measurement_scope"])
+
+    def test_publication_reservation_obeys_cap(self) -> None:
+        budget = TransactionBudget(max_transactions=2, max_total_wei=10_000)
+        reserved = reserve_transaction(
+            budget,
+            gas_limit=20,
+            max_fee_per_gas=100,
+            l1_fee_reserve_wei=500,
+        )
+        self.assertEqual(reserved, 2_500)
+        self.assertEqual(budget.transactions, 1)
 
 
 if __name__ == "__main__":
