@@ -10,7 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from zkbench.system_metrics import (  # noqa: E402
     LinuxProcProcessCounterProvider,
+    LinuxProcSystemMemoryCounterProvider,
     default_process_counter_provider,
+    default_system_memory_counter_provider,
 )
 
 
@@ -59,6 +61,46 @@ class SystemMetricsTests(unittest.TestCase):
         self.assertEqual(counters.write_bytes, 8192)
         self.assertEqual(counters.cpu_time_ns, 240_000_000)
         self.assertIsNone(counters.private_bytes)
+
+    def test_linux_system_memory_and_swap_io_counters(self) -> None:
+        local = Path(__file__).resolve().parents[1] / ".local"
+        local.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=local) as temp:
+            proc = Path(temp)
+            (proc / "meminfo").write_text(
+                "MemTotal: 32768 kB\n"
+                "MemAvailable: 24576 kB\n"
+                "SwapTotal: 8192 kB\n"
+                "SwapFree: 7168 kB\n"
+                "SwapCached: 256 kB\n",
+                encoding="utf-8",
+            )
+            (proc / "vmstat").write_text(
+                "pgfault 1234\npswpin 12\npswpout 34\n",
+                encoding="utf-8",
+            )
+            counters = LinuxProcSystemMemoryCounterProvider(
+                proc, page_size_bytes=4096
+            ).capture()
+        self.assertTrue(counters.supported, counters.unavailable_reason)
+        self.assertEqual(counters.mem_total_bytes, 32768 * 1024)
+        self.assertEqual(counters.mem_available_bytes, 24576 * 1024)
+        self.assertEqual(counters.swap_total_bytes, 8192 * 1024)
+        self.assertEqual(counters.swap_free_bytes, 7168 * 1024)
+        self.assertEqual(counters.swap_cached_bytes, 256 * 1024)
+        self.assertEqual(counters.swap_in_pages, 12)
+        self.assertEqual(counters.swap_out_pages, 34)
+        self.assertEqual(counters.page_size_bytes, 4096)
+
+    def test_default_system_memory_provider_is_explicit(self) -> None:
+        counters = default_system_memory_counter_provider().capture()
+        if sys.platform.startswith("linux"):
+            self.assertTrue(counters.supported, counters.unavailable_reason)
+            self.assertEqual(counters.provider, "linux-procfs-system")
+            self.assertIsNotNone(counters.swap_in_pages)
+            self.assertIsNotNone(counters.swap_out_pages)
+        else:
+            self.assertFalse(counters.supported)
 
 
 if __name__ == "__main__":

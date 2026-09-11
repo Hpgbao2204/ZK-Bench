@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Confirmatory WSL2/Linux swap-I/O audit at the largest paper-scale state workload",
+  "claim_id": "PAPER-R1-MILLION-SWAP-AUDIT",
+  "base_matrix": "configs/reproduction-scale-campaigns.json",
+  "systems": ["groth16", "plonk", "stark", "bulletproofs"],
+  "scale": 1048576,
+  "threads": 16,
+  "repetitions": 10,
+  "os_cache_primer_runs": 2,
+  "seed": 20260911,
+  "process_sampling_interval_ms": 5,
+  "system_sampling_interval_ms": 250,
+  "timeout_seconds": 14400,
+  "output_root": ".local/reproductions/million-swap-audit-v1",
+  "table_csv": "Paper/tables/swap_audit.csv",
+  "table_tex": "Paper/tables/swap_audit.tex",
+  "limitations": [
+    "pswpin and pswpout are system-wide Linux/WSL2 guest counters",
+    "non-zero deltas can include unrelated guest processes, so the host should remain idle",
+    "Windows host pagefile traffic is outside this audit and remains unavailable"
+  ]
+}

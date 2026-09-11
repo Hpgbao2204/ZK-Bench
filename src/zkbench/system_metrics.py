@@ -24,8 +24,27 @@ class ProcessCounters:
     unavailable_reason: str | None = None
 
 
+@dataclass(frozen=True)
+class SystemMemoryCounters:
+    supported: bool
+    mem_total_bytes: int | None
+    mem_available_bytes: int | None
+    swap_total_bytes: int | None
+    swap_free_bytes: int | None
+    swap_cached_bytes: int | None
+    swap_in_pages: int | None
+    swap_out_pages: int | None
+    page_size_bytes: int | None
+    provider: str
+    unavailable_reason: str | None = None
+
+
 class ProcessCounterProvider(Protocol):
     def capture(self, pid: int) -> ProcessCounters: ...
+
+
+class SystemMemoryCounterProvider(Protocol):
+    def capture(self) -> SystemMemoryCounters: ...
 
 
 class UnavailableProcessCounterProvider:
@@ -43,6 +62,26 @@ class UnavailableProcessCounterProvider:
             write_bytes=None,
             swap_bytes=None,
             cpu_time_ns=None,
+            provider="unavailable",
+            unavailable_reason=self.reason,
+        )
+
+
+class UnavailableSystemMemoryCounterProvider:
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+
+    def capture(self) -> SystemMemoryCounters:
+        return SystemMemoryCounters(
+            supported=False,
+            mem_total_bytes=None,
+            mem_available_bytes=None,
+            swap_total_bytes=None,
+            swap_free_bytes=None,
+            swap_cached_bytes=None,
+            swap_in_pages=None,
+            swap_out_pages=None,
+            page_size_bytes=None,
             provider="unavailable",
             unavailable_reason=self.reason,
         )
@@ -197,6 +236,19 @@ def _parse_proc_key_values(text: str) -> dict[str, int]:
     return values
 
 
+def _parse_proc_space_values(text: str) -> dict[str, int]:
+    values: dict[str, int] = {}
+    for line in text.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            continue
+        try:
+            values[fields[0]] = int(fields[1])
+        except ValueError:
+            continue
+    return values
+
+
 def _parse_proc_stat(text: str) -> tuple[int, int]:
     closing = text.rfind(")")
     if closing < 0:
@@ -250,7 +302,9 @@ class LinuxProcProcessCounterProvider:
             page_faults=_nonboundary(page_faults),
             read_bytes=_nonboundary(io_values.get("read_bytes")),
             write_bytes=_nonboundary(io_values.get("write_bytes")),
-            swap_bytes=_nonboundary(status.get("VmSwap")),
+            # Preserve a genuine zero in raw evidence; the campaign layer labels
+            # the boundary and excludes it from ordinary quantitative summaries.
+            swap_bytes=status.get("VmSwap"),
             cpu_time_ns=_nonboundary(
                 (cpu_ticks * 1_000_000_000) // self.clock_ticks_per_second
             ),
@@ -262,9 +316,67 @@ class LinuxProcProcessCounterProvider:
         )
 
 
+class LinuxProcSystemMemoryCounterProvider:
+    """Read WSL/Linux system-wide memory and swap-I/O counters from procfs."""
+
+    def __init__(
+        self,
+        proc_root: Path = Path("/proc"),
+        page_size_bytes: int | None = None,
+    ) -> None:
+        self.proc_root = proc_root
+        self.page_size_bytes = (
+            page_size_bytes
+            if page_size_bytes is not None
+            else int(os.sysconf("SC_PAGE_SIZE"))
+        )
+
+    def capture(self) -> SystemMemoryCounters:
+        try:
+            memory = _parse_proc_key_values(
+                (self.proc_root / "meminfo").read_text(encoding="utf-8")
+            )
+            virtual_memory = _parse_proc_space_values(
+                (self.proc_root / "vmstat").read_text(encoding="utf-8")
+            )
+            required_memory = ("MemTotal", "MemAvailable", "SwapTotal", "SwapFree")
+            required_vmstat = ("pswpin", "pswpout")
+            missing = [
+                name
+                for name in (*required_memory, *required_vmstat)
+                if name not in memory and name not in virtual_memory
+            ]
+            if missing:
+                raise ValueError(f"procfs counters missing: {', '.join(missing)}")
+        except (OSError, ValueError) as error:
+            return UnavailableSystemMemoryCounterProvider(
+                f"Linux system-memory procfs read failed: {error}"
+            ).capture()
+        return SystemMemoryCounters(
+            supported=True,
+            mem_total_bytes=memory["MemTotal"],
+            mem_available_bytes=memory["MemAvailable"],
+            swap_total_bytes=memory["SwapTotal"],
+            swap_free_bytes=memory["SwapFree"],
+            swap_cached_bytes=memory.get("SwapCached"),
+            swap_in_pages=virtual_memory["pswpin"],
+            swap_out_pages=virtual_memory["pswpout"],
+            page_size_bytes=self.page_size_bytes,
+            provider="linux-procfs-system",
+            unavailable_reason=None,
+        )
+
 def default_process_counter_provider() -> ProcessCounterProvider:
     if os.name == "nt":
         return WindowsProcessCounterProvider()
     if sys.platform.startswith("linux"):
         return LinuxProcProcessCounterProvider()
     return UnavailableProcessCounterProvider("no process counter provider for this platform")
+
+
+def default_system_memory_counter_provider() -> SystemMemoryCounterProvider:
+    if sys.platform.startswith("linux"):
+        return LinuxProcSystemMemoryCounterProvider()
+    return UnavailableSystemMemoryCounterProvider(
+        "system-wide swap-I/O counters require Linux/WSL2 procfs"
+    )

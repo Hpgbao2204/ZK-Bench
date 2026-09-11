@@ -38,6 +38,7 @@ class RunnerTests(unittest.TestCase):
             self.assertTrue(all(row["verify_ok"] == "true" for row in rows))
             self.assertIn("process_read_bytes", rows[0])
             self.assertIn("peak_swap_mb", rows[0])
+            self.assertIn("system_swap_io_observed", rows[0])
             self.assertNotIn("swap_read_bytes", rows[0])
             environment = json.loads((output / "environment.json").read_text(encoding="utf-8"))
             self.assertEqual(environment["runner"], "reference-predicate")

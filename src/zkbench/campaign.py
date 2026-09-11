@@ -174,6 +174,15 @@ def validate_campaign_config(config: dict[str, Any]) -> None:
         value = config.get(name)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 1:
             raise ValueError(f"{name} must exceed excluded boundary values")
+    system_sampling_interval_ms = config.get("system_sampling_interval_ms", 250)
+    if (
+        isinstance(system_sampling_interval_ms, bool)
+        or not isinstance(system_sampling_interval_ms, (int, float))
+        or system_sampling_interval_ms <= 1
+    ):
+        raise ValueError(
+            "system_sampling_interval_ms must exceed excluded boundary values"
+        )
     energy = config.get("energy")
     if (
         not isinstance(energy, dict)
@@ -388,6 +397,10 @@ def _quantitative_raw(value: float | None) -> tuple[str, str]:
     return formatted, ""
 
 
+def _bytes_to_mb_raw(value: int | None) -> str:
+    return "" if value is None else f"{value / (1024 * 1024):.6f}"
+
+
 def _base_row(
     config: dict[str, Any],
     config_hash: str,
@@ -485,15 +498,29 @@ def execution_rows(
         if execution.process.peak_swap_bytes is not None
         else None
     )
+    system = execution.system_memory
+    system_boundary = (
+        "system swap-in and swap-out deltas are measured exact zeros retained "
+        "for the categorical swap-I/O audit"
+        if system.swap_io_observed is False
+        else ""
+    )
     boundary_reasons = [
         reason
-        for reason in (boundary_reason, cpu_boundary, rss_boundary, swap_boundary)
+        for reason in (
+            boundary_reason,
+            cpu_boundary,
+            rss_boundary,
+            swap_boundary,
+            system_boundary,
+        )
         if reason
     ]
     unavailable_reasons = [
         reason
         for reason in (
             execution.process.unavailable_reason,
+            system.unavailable_reason,
             config.get("energy", {}).get("unavailable_reason"),
         )
         if reason
@@ -519,7 +546,7 @@ def execution_rows(
             "process_write_bytes": execution.process.process_write_bytes or "",
             "peak_swap_mb": peak_swap_mb,
             "process_counter_provider": execution.process.provider,
-            "measurement_scope": "process",
+            "measurement_scope": "process-and-system",
             "metric_unavailable_reason": "; ".join(unavailable_reasons),
             "boundary_reason": "; ".join(boundary_reasons),
             "phase_supported": "true",
@@ -531,6 +558,51 @@ def execution_rows(
             "relation_unit": result.relation_unit if result else "",
             "counter_sampling_interval_ms": execution.process.sampling_interval_ms,
             "counter_samples": execution.process.samples,
+            "system_mem_total_mb": _bytes_to_mb_raw(system.mem_total_bytes),
+            "system_swap_total_mb": _bytes_to_mb_raw(system.swap_total_bytes),
+            "system_mem_available_start_mb": _bytes_to_mb_raw(
+                system.mem_available_start_bytes
+            ),
+            "system_mem_available_end_mb": _bytes_to_mb_raw(
+                system.mem_available_end_bytes
+            ),
+            "system_mem_available_min_mb": _bytes_to_mb_raw(
+                system.mem_available_min_bytes
+            ),
+            "system_swap_used_start_mb": _bytes_to_mb_raw(
+                system.swap_used_start_bytes
+            ),
+            "system_swap_used_end_mb": _bytes_to_mb_raw(
+                system.swap_used_end_bytes
+            ),
+            "system_swap_used_peak_mb": _bytes_to_mb_raw(
+                system.swap_used_peak_bytes
+            ),
+            "system_swap_in_pages_delta": (
+                system.swap_in_pages_delta
+                if system.swap_in_pages_delta is not None
+                else ""
+            ),
+            "system_swap_out_pages_delta": (
+                system.swap_out_pages_delta
+                if system.swap_out_pages_delta is not None
+                else ""
+            ),
+            "system_swap_in_mb_delta": _bytes_to_mb_raw(
+                system.swap_in_bytes_delta
+            ),
+            "system_swap_out_mb_delta": _bytes_to_mb_raw(
+                system.swap_out_bytes_delta
+            ),
+            "system_swap_io_observed": (
+                str(system.swap_io_observed).lower()
+                if system.swap_io_observed is not None
+                else ""
+            ),
+            "system_counter_provider": system.provider,
+            "system_counter_unavailable_reason": system.unavailable_reason or "",
+            "system_sampling_interval_ms": system.sampling_interval_ms,
+            "system_counter_samples": system.samples,
         }
     )
     rows.append(row)
@@ -1027,6 +1099,9 @@ def run_adapter_campaign(
                 request,
                 timeout_seconds=float(config["timeout_seconds"]),
                 sampling_interval_ms=float(config["sampling_interval_ms"]),
+                system_sampling_interval_ms=float(
+                    config.get("system_sampling_interval_ms", 250.0)
+                ),
             )
             new_rows = execution_rows(
                 execution,

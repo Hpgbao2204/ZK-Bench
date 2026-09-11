@@ -31,6 +31,11 @@ class AdapterRunnerTests(unittest.TestCase):
         self.assertTrue(execution.result.verify_ok)
         self.assertGreater(execution.process.samples, 1)
         self.assertIsNotNone(execution.process.peak_rss_bytes)
+        if sys.platform.startswith("linux"):
+            self.assertIsNotNone(execution.process.peak_swap_bytes)
+            self.assertEqual(execution.system_memory.provider, "linux-procfs-system")
+            self.assertGreaterEqual(execution.system_memory.samples, 2)
+            self.assertIsNotNone(execution.system_memory.swap_io_observed)
 
     def test_invalid_case_must_cryptographically_reject(self) -> None:
         request = AdapterRequest(

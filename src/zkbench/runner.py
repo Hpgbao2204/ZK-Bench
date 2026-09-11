@@ -34,6 +34,15 @@ RAW_FIELDS = [
     "phase_status", "phase_metrics_json", "constraints", "public_inputs",
     "native_relation_size", "relation_unit",
     "counter_sampling_interval_ms", "counter_samples",
+    "system_mem_total_mb", "system_swap_total_mb",
+    "system_mem_available_start_mb",
+    "system_mem_available_end_mb", "system_mem_available_min_mb",
+    "system_swap_used_start_mb", "system_swap_used_end_mb",
+    "system_swap_used_peak_mb", "system_swap_in_pages_delta",
+    "system_swap_out_pages_delta", "system_swap_in_mb_delta",
+    "system_swap_out_mb_delta", "system_swap_io_observed",
+    "system_counter_provider", "system_counter_unavailable_reason",
+    "system_sampling_interval_ms", "system_counter_samples",
 ]
 
 FIXTURES = {
@@ -132,6 +141,23 @@ def run_reference(config: dict[str, Any], output: Path) -> None:
                 "public_inputs": "",
                 "counter_sampling_interval_ms": "",
                 "counter_samples": "",
+                "system_mem_total_mb": "",
+                "system_swap_total_mb": "",
+                "system_mem_available_start_mb": "",
+                "system_mem_available_end_mb": "",
+                "system_mem_available_min_mb": "",
+                "system_swap_used_start_mb": "",
+                "system_swap_used_end_mb": "",
+                "system_swap_used_peak_mb": "",
+                "system_swap_in_pages_delta": "",
+                "system_swap_out_pages_delta": "",
+                "system_swap_in_mb_delta": "",
+                "system_swap_out_mb_delta": "",
+                "system_swap_io_observed": "",
+                "system_counter_provider": "",
+                "system_counter_unavailable_reason": "",
+                "system_sampling_interval_ms": "",
+                "system_counter_samples": "",
             }
         )
     with (output / "raw_results.csv").open("w", newline="", encoding="utf-8") as handle:
