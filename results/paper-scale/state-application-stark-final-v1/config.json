@@ -1,0 +1,76 @@
+{
+  "adapter": "winterfell-0.13.1-f128",
+  "campaign_kind": "adapter-process",
+  "claim_id": "PAPER-RQ2-STATE-APPLICATION-SCALING",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-winterfell-stark"
+  ],
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "evidence_class": "measured",
+  "experiment_id": "paper-state_application-stark-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "repetitions": 3,
+      "scales": [
+        127
+      ],
+      "threads": [
+        16
+      ]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 2,
+  "parallel_backend": "Winterfell concurrent backend through repository-local Rayon pool",
+  "parameter_sets": [
+    {
+      "id": "state_application-paper-r1",
+      "parameters": {
+        "delta_schedule": "splitmix64-v1",
+        "hash_rounds": 5,
+        "scale_mode": "application_units",
+        "stark_relation_mode": "application_predicate",
+        "update_bits": 16
+      }
+    }
+  ],
+  "relation": {
+    "application_unit": "state update",
+    "hash_primitive": "H5(x,y): s0=x+7y+11; sr=s(r-1)^5+(18+r), for r=1..5",
+    "private_inputs": [
+      "one 16-bit bounded delta per update from the deterministic splitmix64-v1 fixture schedule"
+    ],
+    "public_inputs": [
+      "initial state",
+      "final state",
+      "aggregate H5 update digest"
+    ],
+    "scale_interpretation": "input_scale is the number of real state updates; adding the initial row gives a power-of-two Winterfell trace",
+    "stark_air": "29 columns and 29 transition constraints of degree at most five"
+  },
+  "repetitions": 10,
+  "require_clean_git": true,
+  "result_scope": "E2/E3 same-predicate state application-scaling campaign",
+  "sampling_interval_ms": 5,
+  "scales": [
+    127,
+    255,
+    511,
+    1023,
+    2047,
+    4095,
+    8191
+  ],
+  "schema_version": "1.0",
+  "seed": 20260912,
+  "threads": [
+    16
+  ],
+  "timeout_seconds": 14400,
+  "variant": "winterfell-0.13.1-f128-state-air-v1",
+  "workload": "batched_state"
+}
