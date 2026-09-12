@@ -1,0 +1,12 @@
+{
+  "chain_id": 84532,
+  "config_hash": "796761861cb4dc507a1f744f49ade3e934ad07cdceb6cc52590c41dac0158349",
+  "dry_run": false,
+  "git_commit": "1c5b4db6f5a4f7113962586a9f7ad7dcad547677",
+  "public_address": "0x862dAd21b3C2F6702fB3b7D784346b0b89Fa8b9F",
+  "rpc_client_version": "reth/v2.3.0-9384bc5/x86_64-unknown-linux-gnu/base/v1.2.0",
+  "rpc_host": "sepolia.base.org",
+  "schema_version": "1.0",
+  "started_at": "2026-08-20T16:53:48.457031+00:00",
+  "tracked_worktree_dirty": true
+}

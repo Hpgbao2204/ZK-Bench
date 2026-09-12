@@ -1,0 +1,64 @@
+{
+  "adapter": "bulletproofs-5.0.0-ristretto",
+  "campaign_kind": "adapter-process",
+  "claim_id": "PAPER-R1-MILLION-SWAP-AUDIT",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-bulletproofs-range"
+  ],
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "evidence_class": "measured",
+  "experiment_id": "million-swap-audit-bulletproofs-v1",
+  "instrumentation_source_sha256": {
+    "scripts/run_swap_audit.py": "85517b3bdc990cf4228b3178b14823bb03d22ad8cb3af06d662915763fbf58a7",
+    "src/zkbench/adapter_runner.py": "f0092f3b670abbbbf1b8f866bd530714533fc3226828c65058d6ca81d03e9c99",
+    "src/zkbench/campaign.py": "5e074e58995e02b3c50464d15de9907c69d4729303dd471928c9fe6d37e653cd",
+    "src/zkbench/system_metrics.py": "e581333d20b7f775dc66767e6874ea6e3ed9554ee726c06fae9f9b3e630b7807"
+  },
+  "invalid_cases": [],
+  "mode": "cold",
+  "os_cache_primer_runs": 2,
+  "parallel_backend": "Bulletproofs R1CS prover; requested thread count is recorded but the proof API is internally serial",
+  "parameter_sets": [
+    {
+      "id": "state-paper-r1",
+      "parameters": {
+        "application_units": 2,
+        "hash_rounds": 5,
+        "scale_mode": "target_native_size",
+        "update_bits": 16
+      }
+    }
+  ],
+  "relation": {
+    "application_unit": "batched state-transition primitive",
+    "native_size_target": "power-of-two sweep from 16384 through 1048576 native relation units",
+    "private_inputs": [
+      "bounded state deltas"
+    ],
+    "public_inputs": [
+      "initial state",
+      "final state",
+      "aggregate update digest"
+    ]
+  },
+  "repetitions": 10,
+  "require_clean_git": true,
+  "result_scope": "confirmatory million-unit WSL2/Linux memory-pressure audit; timing is not merged with the paper-scale campaign",
+  "sampling_interval_ms": 5,
+  "scales": [
+    1048576
+  ],
+  "schema_version": "1.0",
+  "seed": 20260911,
+  "system_memory_provider": "linux-procfs-system",
+  "system_sampling_interval_ms": 250,
+  "threads": [
+    16
+  ],
+  "timeout_seconds": 14400,
+  "variant": "bulletproofs-5.0.0-ristretto",
+  "workload": "batched_state"
+}

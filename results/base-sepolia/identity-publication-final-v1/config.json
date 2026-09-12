@@ -1,0 +1,24 @@
+{
+  "artifacts": {
+    "bulletproofs": ".local/proof-artifacts/identity/bulletproofs.bin",
+    "groth16": ".local/proof-artifacts/identity/groth16.bin",
+    "plonk": ".local/proof-artifacts/identity/plonk.bin",
+    "stark": ".local/proof-artifacts/identity/stark.bin"
+  },
+  "chain_id": 84532,
+  "claim_id": "PAPER-BASE-SEPOLIA-PUBLICATION",
+  "credentials_file": ".local/base-sepolia.env",
+  "evidence_class": "measured",
+  "expected_public_address": "0x862dAd21b3C2F6702fB3b7D784346b0b89Fa8b9F",
+  "experiment_id": "base-sepolia-identity-proof-publication-v1",
+  "gas_limit_multiplier": 1.2,
+  "l1_fee_reserve_wei_per_transaction": 100000000000000,
+  "max_total_wei": 20000000000000000,
+  "max_transactions": 60,
+  "measurement_scope": "proof publication calldata only; no EVM cryptographic verifier",
+  "receipt_timeout_seconds": 120,
+  "repetitions": 10,
+  "rpc_default": "https://sepolia.base.org",
+  "schema_version": "1.0",
+  "transaction_delay_seconds": 1
+}

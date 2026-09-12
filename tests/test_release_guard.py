@@ -15,7 +15,9 @@ from scripts.release_guard import rejection_reason, staged_paths  # noqa: E402
 class ReleaseGuardTests(unittest.TestCase):
     def test_allows_public_implementation_and_evidence_paths(self) -> None:
         allowed = [
+            ".gitattributes",
             "Cargo.lock",
+            "LICENSE",
             "README.md",
             "adapters/jellyfish-plonk/src/main.rs",
             "configs/controlled-plonk-pilot.json",

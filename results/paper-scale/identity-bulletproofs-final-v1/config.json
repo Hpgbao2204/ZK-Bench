@@ -1,0 +1,69 @@
+{
+  "adapter": "bulletproofs-5.0.0-ristretto",
+  "campaign_kind": "adapter-process",
+  "claim_id": "PAPER-RQ1-IDENTITY",
+  "command": [
+    ".local/wsl-cargo-target/release/zkbench-bulletproofs-range"
+  ],
+  "energy": {
+    "provider": "unavailable",
+    "unavailable_reason": "No documented hardware or OS energy counter is configured in WSL2"
+  },
+  "evidence_class": "measured",
+  "experiment_id": "paper-identity-bulletproofs-v1",
+  "invalid_cases": [
+    {
+      "kind": "wrong_public_input",
+      "repetitions": 3,
+      "scales": [
+        16384
+      ],
+      "threads": [
+        16
+      ]
+    }
+  ],
+  "mode": "cold",
+  "os_cache_primer_runs": 2,
+  "parallel_backend": "Bulletproofs R1CS prover; requested thread count is recorded but the proof API is internally serial",
+  "parameter_sets": [
+    {
+      "id": "identity-paper-r1",
+      "parameters": {
+        "age_bits": 8,
+        "application_units": 2,
+        "hash_rounds": 5,
+        "scale_mode": "target_native_size"
+      }
+    }
+  ],
+  "relation": {
+    "application_unit": "credential assertion",
+    "native_size_target": "16384 native relation units, the nearest common power-of-two point to the paper's approximately 20k circuit",
+    "private_inputs": [
+      "age",
+      "subject",
+      "nonce",
+      "authorization witness"
+    ],
+    "public_inputs": [
+      "minimum age",
+      "aggregate credential commitment"
+    ]
+  },
+  "repetitions": 10,
+  "require_clean_git": true,
+  "result_scope": "paper-scale identity campaign",
+  "sampling_interval_ms": 5,
+  "scales": [
+    16384
+  ],
+  "schema_version": "1.0",
+  "seed": 20260820,
+  "threads": [
+    16
+  ],
+  "timeout_seconds": 14400,
+  "variant": "bulletproofs-5.0.0-ristretto",
+  "workload": "credential"
+}

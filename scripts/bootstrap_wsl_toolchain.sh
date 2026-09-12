@@ -14,6 +14,7 @@ mkdir -p "${downloads}" "${toolchains}" "${rustup_home}" "${cargo_home}"
 rustup_url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"
 rustup_bin="${downloads}/rustup-init-x86_64-unknown-linux-gnu"
 rustup_checksum="${downloads}/rustup-init-x86_64-unknown-linux-gnu.sha256"
+rust_toolchain="1.97.1"
 
 if [[ ! -x "${cargo_home}/bin/cargo" ]]; then
     curl --proto '=https' --tlsv1.2 --fail --location \
@@ -25,7 +26,8 @@ if [[ ! -x "${cargo_home}/bin/cargo" ]]; then
     [[ "${expected_rustup}" == "${actual_rustup}" ]]
     chmod +x "${rustup_bin}"
     RUSTUP_HOME="${rustup_home}" CARGO_HOME="${cargo_home}" \
-        "${rustup_bin}" -y --no-modify-path --profile minimal --default-toolchain stable
+        "${rustup_bin}" -y --no-modify-path --profile minimal \
+        --default-toolchain "${rust_toolchain}"
 fi
 
 if [[ ! -x "${zig_root}/zig" ]]; then

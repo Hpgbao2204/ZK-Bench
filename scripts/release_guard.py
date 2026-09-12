@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path, PurePosixPath
 
 PUBLIC_ROOT_FILES = {
+    ".gitattributes",
     ".gitignore",
     "Cargo.lock",
     "Cargo.toml",

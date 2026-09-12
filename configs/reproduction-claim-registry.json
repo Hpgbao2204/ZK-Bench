@@ -16,7 +16,7 @@
       "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes"],
       "acceptance_rule": "Every adapter has ten valid 16384-native-unit observations, three wrong-public-input rejections, and a validated result bundle.",
       "status": "measured",
-      "output_paths": [".local/reproductions/paper-scale/identity-*-final-v1"],
+      "output_paths": ["results/paper-scale/identity-*-final-v1"],
       "paper_destination": "time_comparison_error.png; economic_cost.png; memory_usage_comparison.png; proof_size_comparison.png"
     },
     {
@@ -34,7 +34,7 @@
       "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "native throughput"],
       "acceptance_rule": "Every adapter has ten valid observations at all seven sizes, a small-scale invalid-proof rejection, and a validated result bundle.",
       "status": "measured",
-      "output_paths": [".local/reproductions/paper-scale/state-*-final-v1"],
+      "output_paths": ["results/paper-scale/state-*-final-v1"],
       "paper_destination": "scenario_prover_time.png; scenario_verifier_time.png; scenario_peak_memory.png; scenario_proof_size.png; prover_throughput.png"
     },
     {
@@ -52,7 +52,7 @@
       "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "component profile"],
       "acceptance_rule": "Every adapter has ten valid 65536-native-unit observations, wrong-public-input rejection, and a validated result bundle.",
       "status": "measured",
-      "output_paths": [".local/reproductions/paper-scale/pcas-*-final-v1"],
+      "output_paths": ["results/paper-scale/pcas-*-final-v1"],
       "paper_destination": "circuit_constraint_breakdown.png; tradeoff_time_vs_gas.png"
     },
     {
@@ -65,7 +65,7 @@
       "metrics": ["fixed_gas", "amortized_gas_per_application_unit", "modeled_cost_usd"],
       "acceptance_rule": "Every row names the model, consumes measured proof size, and remains separate from measured campaign CSVs.",
       "status": "reported",
-      "output_paths": [".local/reproductions/paper-scale/gas/*.csv"],
+      "output_paths": ["results/paper-scale/gas/*.csv"],
       "paper_destination": "economic_cost.png; amortized_gas.png; tradeoff_time_vs_gas.png"
     },
     {
@@ -78,8 +78,36 @@
       "metrics": ["hybrid_prover_ms", "outer_verifier_gas", "break_even_outer_prover_ms"],
       "acceptance_rule": "The output is deterministic from explicit inner time and outer-wrapper assumptions and is never merged with measured rows.",
       "status": "reported",
-      "output_paths": [".local/reproductions/paper-scale/models/hybrid.csv"],
+      "output_paths": ["results/paper-scale/models/hybrid.csv"],
       "paper_destination": "recursive-aware discussion; no empirical figure"
+    },
+    {
+      "claim_id": "PAPER-R1-MILLION-SWAP-AUDIT",
+      "claim_text": "Determine whether any million-native-unit confirmatory run incurred Linux/WSL2 guest swap allocation or swap I/O.",
+      "evidence_class": "measured",
+      "experiment_ids": [
+        "million-swap-audit-groth16-v1",
+        "million-swap-audit-plonk-v1",
+        "million-swap-audit-stark-v1",
+        "million-swap-audit-bulletproofs-v1"
+      ],
+      "workload": "batched_state",
+      "variants": ["groth16", "plonk", "stark", "bulletproofs"],
+      "metrics": [
+        "peak_rss_mb",
+        "peak_swap_mb",
+        "system_mem_available_min_mb",
+        "system_swap_used_peak_mb",
+        "system_swap_in_mb_delta",
+        "system_swap_out_mb_delta"
+      ],
+      "acceptance_rule": "Every adapter has ten measured 1048576-native-unit observations, available Linux/WSL2 guest counters, and a validated result bundle.",
+      "status": "measured",
+      "output_paths": [
+        "results/million-swap-audit-v1/*",
+        "results/million-swap-audit-v1/swap_audit_summary.csv"
+      ],
+      "paper_destination": "confirmatory memory-pressure and swap-I/O table"
     },
     {
       "claim_id": "PAPER-BASE-SEPOLIA-PUBLICATION",
@@ -91,7 +119,7 @@
       "metrics": ["gas_used", "l2_execution_fee_wei", "l1_fee_wei", "total_paid_wei", "receipt_latency_ms"],
       "acceptance_rule": "Every system has ten successful Base Sepolia receipts on chain 84532, a stable verified proof artifact hash, unique transaction hashes, matching receipt-component and wallet-balance fees, and a validated transaction-budget cap.",
       "status": "measured",
-      "output_paths": [".local/reproductions/base-sepolia/identity-publication-final-v1"],
+      "output_paths": ["results/base-sepolia/identity-publication-final-v1"],
       "paper_destination": "caption_1a.pdf through caption_1d.pdf; exact-value table kept separate from verifier-gas figures"
     }
   ]

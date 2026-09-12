@@ -1,0 +1,8 @@
+model_id,evidence_class,gas_profile,measured_inner_stark_prover_ms,assumed_outer_wrapper_prover_ms,hybrid_prover_ms,hybrid_verifier_gas,measured_comparison_plonk_prover_ms,break_even_outer_prover_ms,beats_comparison_latency
+reproduction-hybrid-sensitivity-v1,modeled,pectra-bls12-381,358.041562,200.0,558.041562,270764.0,4057.251995,3699.210433,True
+reproduction-hybrid-sensitivity-v1,modeled,pectra-bls12-381,358.041562,400.0,758.041562,270764.0,4057.251995,3699.210433,True
+reproduction-hybrid-sensitivity-v1,modeled,pectra-bls12-381,358.041562,800.0,1158.041562,270764.0,4057.251995,3699.210433,True
+reproduction-hybrid-sensitivity-v1,modeled,pectra-bls12-381,358.041562,1600.0,1958.041562,270764.0,4057.251995,3699.210433,True
+reproduction-hybrid-sensitivity-v1,modeled,pectra-bls12-381,358.041562,3200.0,3558.041562,270764.0,4057.251995,3699.210433,True
+reproduction-hybrid-sensitivity-v1,modeled,pectra-bls12-381,358.041562,6000.0,6358.041562,270764.0,4057.251995,3699.210433,False
+reproduction-hybrid-sensitivity-v1,modeled,pectra-bls12-381,358.041562,8000.0,8358.041562,270764.0,4057.251995,3699.210433,False
