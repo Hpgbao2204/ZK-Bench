@@ -56,6 +56,27 @@ class AdapterRunnerTests(unittest.TestCase):
         self.assertFalse(execution.result.verify_ok)
         self.assertEqual(execution.result.error_type, "cryptographic_rejection")
 
+    def test_application_scale_allows_adapter_native_relation_units(self) -> None:
+        request = AdapterRequest(
+            run_id="runner-application-units",
+            workload="batched_state",
+            scale=127,
+            threads=2,
+            seed=7,
+            parameters={
+                "scale_mode": "application_units",
+                "native_multiplier": 29,
+            },
+        )
+        execution = execute_adapter(
+            [sys.executable, str(REPO / "tests" / "fixtures" / "fake_adapter.py")],
+            request,
+            timeout_seconds=5,
+            sampling_interval_ms=2,
+        )
+        self.assertTrue(execution.succeeded, execution.protocol_error)
+        self.assertEqual(execution.result.native_work_units, 127 * 29)
+
 
 if __name__ == "__main__":
     unittest.main()

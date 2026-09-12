@@ -19,6 +19,9 @@ COARSE_PHASES = {
     "verify_total",
 }
 FINE_PHASES = {
+    "constraint_synthesis",
+    "witness_assignment",
+    "satisfiability_check",
     "fft_ntt",
     "msm",
     "commitment",

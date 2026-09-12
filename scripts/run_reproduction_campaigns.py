@@ -58,7 +58,9 @@ def build_campaign(matrix: dict, name: str, *, smoke: bool = False) -> dict:
         }
     )
     if smoke:
-        smoke_scale = 8192 if workload_name == "pcas" else 1024
+        smoke_scale = workload.get(
+            "smoke_scale", 8192 if workload_name == "pcas" else 1024
+        )
         config.update(
             {
                 "experiment_id": f"paper-{name}-smoke-v1",
@@ -77,9 +79,17 @@ def build_campaign(matrix: dict, name: str, *, smoke: bool = False) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--matrix",
+        type=Path,
+        default=MATRIX_PATH,
+        help="Campaign matrix (defaults to the archived native-size reproduction matrix)",
+    )
     parser.add_argument("--campaign", action="append", help="Campaign name; repeat as needed")
     parser.add_argument("--all", action="store_true", help="Run every campaign")
-    parser.add_argument("--smoke", action="store_true", help="Use one 256-unit trial")
+    parser.add_argument(
+        "--smoke", action="store_true", help="Use the matrix's short smoke scale"
+    )
     parser.add_argument(
         "--output-root",
         type=Path,
@@ -88,7 +98,7 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="List campaign names and exit")
     args = parser.parse_args()
 
-    matrix = load_matrix()
+    matrix = load_matrix(args.matrix)
     names = campaign_names(matrix)
     if args.list:
         print("\n".join(names))

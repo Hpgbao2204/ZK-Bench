@@ -117,7 +117,6 @@ fn build_controlled_circuit(request: &AdapterRequest) -> Result<CircuitBundle, B
         current_var = next_var;
     }
     let public_inputs = vec![factor, output];
-    circuit.check_circuit_satisfiability(&public_inputs)?;
     let logical_gates = circuit.num_gates();
     circuit.finalize_for_arithmetization()?;
     let domain_rows = circuit.num_gates();
@@ -171,8 +170,12 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
     }
     measured_event(request, "native_execution", &native_timer, native_metrics)?;
 
-    let witness_timer = PhaseTimer::start();
+    // Jellyfish creates variables (and their assignments) while the circuit is
+    // synthesized. Keep the fused operation explicit and time the optional
+    // satisfiability audit independently.
+    let synthesis_timer = PhaseTimer::start();
     let controlled = build_circuit(request)?;
+    let synthesis_elapsed = synthesis_timer.elapsed();
     let mut witness_metrics = BTreeMap::from([
         ("application_units".to_owned(), request.scale as f64),
         (
@@ -186,7 +189,38 @@ fn run(request: &AdapterRequest) -> Result<RunOutcome, Box<dyn Error>> {
         ("plonk_variables".to_owned(), controlled.variables as f64),
     ]);
     witness_metrics.extend(controlled.profile.clone());
-    measured_duration(request, "witness", witness_timer.elapsed(), witness_metrics)?;
+    measured_duration(
+        request,
+        "constraint_synthesis",
+        synthesis_elapsed,
+        witness_metrics.clone(),
+    )?;
+    emit(&PhaseEvent::unsupported(
+        request,
+        ADAPTER,
+        "witness_assignment",
+        "Jellyfish assigns variables while constructing gates; the circuit API exposes no independent assignment timer",
+    ))?;
+    let satisfiability_timer = PhaseTimer::start();
+    controlled
+        .circuit
+        .check_circuit_satisfiability(&controlled.public_inputs)?;
+    let satisfiability_elapsed = satisfiability_timer.elapsed();
+    measured_duration(
+        request,
+        "satisfiability_check",
+        satisfiability_elapsed,
+        BTreeMap::from([(
+            "plonk_domain_rows".to_owned(),
+            controlled.domain_rows as f64,
+        )]),
+    )?;
+    measured_duration(
+        request,
+        "witness",
+        synthesis_elapsed + satisfiability_elapsed,
+        witness_metrics,
+    )?;
 
     let setup_timer = PhaseTimer::start();
     let srs_size = controlled.circuit.srs_size()?;

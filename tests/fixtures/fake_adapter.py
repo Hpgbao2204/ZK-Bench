@@ -22,6 +22,12 @@ for phase in (
     "verify_core",
     "verify_total",
 ):
+    metrics = {}
+    if (
+        phase == "native_execution"
+        and request.get("parameters", {}).get("scale_mode") == "application_units"
+    ):
+        metrics["application_units"] = request["scale"]
     print(
         json.dumps(
             {
@@ -34,7 +40,7 @@ for phase in (
                 "status": "ok",
                 "thread_count": request["threads"],
                 "elapsed_ns": 25,
-                "metrics": {},
+                "metrics": metrics,
                 "unavailable_reason": None,
                 "boundary_reason": None,
             }
@@ -59,6 +65,7 @@ print(
     )
 )
 invalid = request.get("invalid_case") is not None
+native_multiplier = request.get("parameters", {}).get("native_multiplier", 1)
 print(
     json.dumps(
         {
@@ -68,7 +75,7 @@ print(
             "adapter": adapter,
             "verify_ok": not invalid,
             "proof_bytes": 128,
-            "native_work_units": request["scale"],
+            "native_work_units": request["scale"] * native_multiplier,
             "public_inputs": 2,
             "constraints": request["scale"],
             "invalid_case": request.get("invalid_case"),

@@ -255,7 +255,27 @@ def validate_transcript(
     result = results[0]
     if result.run_id != request.run_id:
         raise ValueError("adapter result run_id does not match request")
-    if result.native_work_units != request.scale:
+    scale_mode = request.parameters.get("scale_mode")
+    if scale_mode == "target_native_size":
+        if result.native_work_units != request.scale:
+            raise ValueError("adapter result native_work_units does not match target scale")
+    elif scale_mode == "application_units":
+        native_events = [
+            event
+            for event in phases
+            if event.phase == "native_execution" and event.supported
+        ]
+        application_units = (
+            native_events[0].metrics.get("application_units")
+            if len(native_events) == 1
+            else None
+        )
+        if application_units != request.scale:
+            raise ValueError(
+                "application-scale request requires native_execution.application_units "
+                "to match request scale"
+            )
+    elif result.native_work_units != request.scale:
         raise ValueError("adapter result native_work_units does not match request scale")
     if request.invalid_case is None and not result.verify_ok:
         raise ValueError("valid request did not verify")

@@ -15,6 +15,23 @@ from zkbench.adapter_protocol import (  # noqa: E402
 
 
 class AdapterProtocolTests(unittest.TestCase):
+    def test_pairing_phase_decomposition_is_in_protocol(self) -> None:
+        for phase in (
+            "constraint_synthesis",
+            "witness_assignment",
+            "satisfiability_check",
+        ):
+            event = PhaseEvent(
+                run_id="r1",
+                adapter="example",
+                phase=phase,
+                supported=False,
+                status="unsupported",
+                thread_count=1,
+                unavailable_reason="test fixture",
+            )
+            event.validate()
+
     def test_request_rejects_boundary_scale(self) -> None:
         request = AdapterRequest(
             run_id="r1",

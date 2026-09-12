@@ -24,6 +24,7 @@ struct RelationParameters {
     membership_paths: usize,
     target_native_size: Option<usize>,
     ablation: String,
+    delta_schedule: String,
 }
 
 impl RelationParameters {
@@ -58,6 +59,20 @@ impl RelationParameters {
         ) {
             return Err(format!("unsupported ablation: {ablation}"));
         }
+        let delta_schedule = request
+            .parameters
+            .get("delta_schedule")
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| "delta_schedule must be a categorical string".to_owned())
+            })
+            .transpose()?
+            .unwrap_or("linear-v1")
+            .to_owned();
+        if !matches!(delta_schedule.as_str(), "linear-v1" | "splitmix64-v1") {
+            return Err(format!("unsupported delta_schedule: {delta_schedule}"));
+        }
         Ok(Self {
             age_bits: bit_parameter(request, "age_bits", 8)?,
             update_bits: bit_parameter(request, "update_bits", 16)?,
@@ -75,6 +90,7 @@ impl RelationParameters {
                 optional_numeric_parameter(request, "target_native_size")?
             },
             ablation,
+            delta_schedule,
         })
     }
 
@@ -391,13 +407,27 @@ impl ApplicationCircuit {
         vec![Fr::from(min_age), aggregate]
     }
 
-    fn state_delta(seed: u64, index: usize, width: usize) -> u64 {
+    fn splitmix64(mut value: u64) -> u64 {
+        value = value.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        value = (value ^ (value >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        value = (value ^ (value >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        value ^ (value >> 31)
+    }
+
+    fn state_delta(seed: u64, index: usize, width: usize, schedule: &str) -> u64 {
         let mask = if width >= 63 {
             u64::MAX >> 1
         } else {
             (1_u64 << width) - 1
         };
-        2 + seed.wrapping_add(index as u64 * 13) % mask.saturating_sub(2)
+        let raw = match schedule {
+            "linear-v1" => seed.wrapping_add(index as u64 * 13),
+            "splitmix64-v1" => {
+                Self::splitmix64(seed ^ (index as u64).wrapping_mul(0xD6E8_FEB8_6659_FD93))
+            }
+            _ => unreachable!("delta schedule validated by RelationParameters"),
+        };
+        2 + raw % mask.saturating_sub(2)
     }
 
     fn state_public_inputs(&self, seed: u64) -> Vec<Fr> {
@@ -405,7 +435,12 @@ impl ApplicationCircuit {
         let mut state = initial;
         let mut digest = Fr::from(31_u64);
         for index in 0..self.scale {
-            let delta = Fr::from(Self::state_delta(seed, index, self.parameters.update_bits));
+            let delta = Fr::from(Self::state_delta(
+                seed,
+                index,
+                self.parameters.update_bits,
+                &self.parameters.delta_schedule,
+            ));
             state += delta;
             let update = hash_native(delta, state, self.parameters.hash_rounds);
             digest = hash_native(digest, update, self.parameters.hash_rounds);
@@ -516,9 +551,14 @@ impl ApplicationCircuit {
         let expected_digest = input_field(cs.clone(), public[2])?;
         let mut digest = FpVar::constant(Fr::from(31_u64));
         for index in 0..self.scale {
-            let delta_value = self
-                .seed
-                .map(|seed| Self::state_delta(seed, index, self.parameters.update_bits));
+            let delta_value = self.seed.map(|seed| {
+                Self::state_delta(
+                    seed,
+                    index,
+                    self.parameters.update_bits,
+                    &self.parameters.delta_schedule,
+                )
+            });
             let delta = bounded_witness(cs.clone(), delta_value, self.parameters.update_bits)?;
             state = &state + &delta;
             let update = hash_gadget(&delta, &state, self.parameters.hash_rounds)?;
@@ -646,6 +686,14 @@ impl ConstraintSynthesizer<Fr> for ApplicationCircuit {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn splitmix_state_fixture_matches_cross_adapter_vector() {
+        let values: Vec<u64> = (0..5)
+            .map(|index| ApplicationCircuit::state_delta(7, index, 16, "splitmix64-v1"))
+            .collect();
+        assert_eq!(values, [37141, 33678, 29210, 47224, 62443]);
+    }
     use ark_relations::gr1cs::ConstraintSystem;
 
     fn request(workload: &str) -> AdapterRequest {

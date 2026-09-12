@@ -21,7 +21,7 @@
     },
     {
       "claim_id": "PAPER-RQ2-STATE-SCALING",
-      "claim_text": "Measure the state-transition scaling curves at seven power-of-two native sizes from 16384 through 1048576.",
+      "claim_text": "Archive an ecosystem-level native-size sweep from 16384 through 1048576; this sweep holds application work at two updates and must not be reported as application-throughput scaling.",
       "evidence_class": "measured",
       "experiment_ids": [
         "paper-state-groth16-v1",
@@ -31,11 +31,36 @@
       ],
       "workload": "batched_state",
       "variants": ["groth16", "plonk", "stark", "bulletproofs"],
-      "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "native throughput"],
-      "acceptance_rule": "Every adapter has ten valid observations at all seven sizes, a small-scale invalid-proof rejection, and a validated result bundle.",
-      "status": "measured",
+      "metrics": ["prove_total", "verify_total", "peak_rss_mb", "proof_bytes", "native-unit throughput"],
+      "acceptance_rule": "Every adapter has ten valid observations at all seven native sizes, a small-scale invalid-proof rejection, and a validated result bundle; interpretation remains limited to size-matched implementation-stack cost.",
+      "status": "reported",
       "output_paths": ["results/paper-scale/state-*-final-v1"],
       "paper_destination": "scenario_prover_time.png; scenario_verifier_time.png; scenario_peak_memory.png; scenario_proof_size.png; prover_throughput.png"
+    },
+    {
+      "claim_id": "PAPER-RQ2-STATE-APPLICATION-SCALING",
+      "claim_text": "Measure Groth16, PLONK, and Winterfell on the same batched-state predicate while the number of real state updates grows from 127 to 8191.",
+      "evidence_class": "measured",
+      "experiment_ids": [
+        "paper-state_application-groth16-v1",
+        "paper-state_application-plonk-v1",
+        "paper-state_application-stark-v1"
+      ],
+      "workload": "batched_state",
+      "variants": ["groth16", "plonk", "stark"],
+      "metrics": [
+        "constraint_synthesis",
+        "satisfiability_check",
+        "prove_total",
+        "verify_total",
+        "peak_rss_mb",
+        "proof_bytes",
+        "state updates per second"
+      ],
+      "acceptance_rule": "All three adapters prove the same 127, 255, 511, 1023, 2047, 4095, and 8191-update fixtures with ten valid observations per point, three wrong-public-input rejections at the smallest point, and validated raw/summary/config/environment bundles.",
+      "status": "implemented",
+      "output_paths": [".local/reproductions/application-state/state_application-*-final-v1"],
+      "paper_destination": "replacement RQ2 application-throughput figure and phase-decomposition table"
     },
     {
       "claim_id": "PAPER-RQ3-PCAS",

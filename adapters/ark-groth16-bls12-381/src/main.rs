@@ -182,23 +182,49 @@ fn run(request: &AdapterRequest) -> Result<(bool, usize, usize, usize), Box<dyn 
         native_metrics,
     )?)?;
 
-    let witness_timer = PhaseTimer::start();
+    // This preflight constraint-system build is an audit step. Arkworks' proving
+    // API synthesizes the circuit again inside `prove_total`; production proving
+    // does not need the explicit satisfiability check below.
+    let synthesis_timer = PhaseTimer::start();
     let cs = ConstraintSystem::<Fr>::new_ref();
     plan.circuit.clone().generate_constraints(cs.clone())?;
+    let synthesis_elapsed = synthesis_timer.elapsed();
     let constraints = cs.num_constraints();
-    if !cs.is_satisfied()? {
+    let mut witness_metrics = plan.profile.clone();
+    witness_metrics.insert("constraint_count".to_owned(), constraints as f64);
+    emit(&PhaseEvent::measured(
+        request,
+        ADAPTER,
+        "constraint_synthesis",
+        synthesis_elapsed,
+        witness_metrics.clone(),
+    )?)?;
+    emit(&PhaseEvent::unsupported(
+        request,
+        ADAPTER,
+        "witness_assignment",
+        "Arkworks assigns witness values while generate_constraints synthesizes the R1CS; the public API exposes no independent assignment timer",
+    ))?;
+
+    let satisfiability_timer = PhaseTimer::start();
+    let satisfied = cs.is_satisfied()?;
+    let satisfiability_elapsed = satisfiability_timer.elapsed();
+    emit(&PhaseEvent::measured(
+        request,
+        ADAPTER,
+        "satisfiability_check",
+        satisfiability_elapsed,
+        BTreeMap::from([("constraint_count".to_owned(), constraints as f64)]),
+    )?)?;
+    if !satisfied {
         return Err("controlled witness does not satisfy R1CS".into());
     }
     emit(&PhaseEvent::measured(
         request,
         ADAPTER,
         "witness",
-        witness_timer.elapsed(),
-        {
-            let mut metrics = plan.profile.clone();
-            metrics.insert("constraint_count".to_owned(), constraints as f64);
-            metrics
-        },
+        synthesis_elapsed + satisfiability_elapsed,
+        witness_metrics,
     )?)?;
 
     let setup_timer = PhaseTimer::start();

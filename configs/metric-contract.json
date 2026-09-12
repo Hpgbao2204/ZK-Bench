@@ -12,6 +12,9 @@
     1.0
   ],
   "fine_phases": [
+    "constraint_synthesis",
+    "witness_assignment",
+    "satisfiability_check",
     "fft_ntt",
     "msm",
     "commitment",

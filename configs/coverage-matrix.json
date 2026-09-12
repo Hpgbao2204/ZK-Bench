@@ -17,7 +17,7 @@
       "curve_or_field": "BLS12-381",
       "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap"],
       "status": "paper_scale_application_support_smoke_validated",
-      "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
+      "phase_metrics": ["native_execution", "constraint_synthesis", "witness_assignment (fused/unsupported)", "satisfiability_check", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
       "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
     },
     {
@@ -35,7 +35,7 @@
       "curve_or_field": "BLS12-381",
       "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap"],
       "status": "measured_partial",
-      "phase_metrics": ["native_execution", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
+      "phase_metrics": ["native_execution", "constraint_synthesis", "witness_assignment (fused/unsupported)", "satisfiability_check", "witness", "setup_or_preprocess", "prove_total", "serialize", "deserialize", "verify_core", "verify_total", "invalid_reject"],
       "unsupported_phases": ["fft_ntt", "msm", "commitment", "key_load"]
     },
     {
@@ -53,7 +53,7 @@
       "family": "transparent_stark",
       "curve_or_field": "F128",
       "workloads": ["controlled_kernel", "credential", "batched_state", "private_swap"],
-      "status": "paper_scale_application_air_smoke_validated",
+      "status": "state_application_air_implemented_unmeasured; credential_and_private_swap_remain_size_proxies",
       "native_relation_unit": "air_trace_cells",
       "phase_metrics": ["native_execution", "witness", "prove_total", "serialize", "deserialize", "verify_total", "invalid_reject"],
       "unsupported_phases": ["setup_or_preprocess", "key_load", "msm", "fft_ntt"]

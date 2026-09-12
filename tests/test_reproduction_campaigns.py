@@ -67,6 +67,39 @@ class PaperCampaignTests(unittest.TestCase):
         self.assertEqual(config["threads"], [16])
         self.assertFalse(config["require_clean_git"])
 
+    def test_application_state_matrix_uses_equal_real_update_counts(self) -> None:
+        matrix = MODULE.load_matrix(REPO / "configs" / "application-state-campaigns.json")
+        self.assertEqual(
+            MODULE.campaign_names(matrix),
+            (
+                "state_application-groth16",
+                "state_application-plonk",
+                "state_application-stark",
+            ),
+        )
+        for adapter in ("groth16", "plonk", "stark"):
+            config = MODULE.build_campaign(matrix, f"state_application-{adapter}")
+            self.assertEqual(config["scales"], [127, 255, 511, 1023, 2047, 4095, 8191])
+            self.assertEqual(
+                config["parameter_sets"][0]["parameters"]["scale_mode"],
+                "application_units",
+            )
+            self.assertEqual(
+                config["parameter_sets"][0]["parameters"]["hash_rounds"], 5
+            )
+            self.assertEqual(
+                config["parameter_sets"][0]["parameters"]["delta_schedule"],
+                "splitmix64-v1",
+            )
+
+    def test_application_state_smoke_preserves_power_of_two_trace_shape(self) -> None:
+        matrix = MODULE.load_matrix(REPO / "configs" / "application-state-campaigns.json")
+        config = MODULE.build_campaign(
+            matrix, "state_application-stark", smoke=True
+        )
+        self.assertEqual(config["scales"], [127])
+        self.assertFalse(config["require_clean_git"])
+
 
 if __name__ == "__main__":
     unittest.main()
