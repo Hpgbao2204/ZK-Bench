@@ -635,9 +635,6 @@ mod tests {
         // Split the test into two scopes, so that it's explicit what
         // data is shared between the prover and the verifier.
 
-        // Use bincode for serialization
-        //use bincode; // already present in lib.rs
-
         // Both prover and verifier have access to the generators and the proof
         let max_bitsize = 64;
         let max_parties = 8;
@@ -667,13 +664,13 @@ mod tests {
             .unwrap();
 
             // 2. Return serialized proof and value commitments
-            (bincode::serialize(&proof).unwrap(), value_commitments)
+            (proof.to_bytes(), value_commitments)
         };
 
         // Verifier's scope
         {
             // 3. Deserialize
-            let proof: RangeProof = bincode::deserialize(&proof_bytes).unwrap();
+            let proof = RangeProof::from_bytes(&proof_bytes).unwrap();
 
             // 4. Verify with the same customization label as above
             let mut transcript = Transcript::new(b"AggregatedRangeProofTest");
