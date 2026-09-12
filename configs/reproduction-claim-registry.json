@@ -58,7 +58,7 @@
         "state updates per second"
       ],
       "acceptance_rule": "All three adapters prove the same 127, 255, 511, 1023, 2047, 4095, and 8191-update fixtures with ten valid observations per point, three wrong-public-input rejections at the smallest point, and validated raw/summary/config/environment bundles.",
-      "status": "measured",
+      "status": "reported",
       "output_paths": ["results/paper-scale/state-application-*-final-v1"],
       "paper_destination": "replacement RQ2 application-throughput figure and phase-decomposition table"
     },
